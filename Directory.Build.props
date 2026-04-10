@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Copyright>Copyright (c) 2026 SQL Pilot Contributors</Copyright>
+    <Company>SQL Pilot</Company>
+    <Product>SQL Pilot</Product>
+    <Authors>SQL Pilot Contributors</Authors>
+    <NeutralLanguage>en-US</NeutralLanguage>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>SqlPilot.Installer</RootNamespace>
+    <AssemblyName>SqlPilotInstaller</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <Description>Friendly one-click installer for SQL Pilot — downloads the latest release from GitHub and installs into all detected SSMS versions</Description>
+    <Product>SQL Pilot</Product>
+    <AssemblyTitle>SQL Pilot Installer</AssemblyTitle>
+    <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="Exists('Resources\logo.ico')">Resources\logo.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <!-- HttpClient lives in System.Net.Http on net472 — needs an explicit framework reference -->
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <!-- Logo lives at .github/logo.png as the single source of truth.
+       Linked here as a WPF Resource so the window can show it.
+       If the file doesn't exist yet (first checkout, before logo is dropped),
+       the build still succeeds and the window shows a placeholder.  -->
+  <ItemGroup Condition="Exists('..\..\.github\logo.png')">
+    <Resource Include="..\..\.github\logo.png" Link="Resources\logo.png" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>SqlPilot.Smo</RootNamespace>
+    <AssemblyName>SqlPilot.Smo</AssemblyName>
+    <Description>SMO-based database object provider for SQL Pilot</Description>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SqlPilot.Core\SqlPilot.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.SqlServer.Smo">
+      <HintPath>..\..\lib\Ssms22\Microsoft.SqlServer.Smo.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.ConnectionInfo">
+      <HintPath>..\..\lib\Ssms22\Microsoft.SqlServer.ConnectionInfo.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.Management.Sdk.Sfc">
+      <HintPath>..\..\lib\Ssms22\Microsoft.SqlServer.Management.Sdk.Sfc.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.SqlEnum">
+      <HintPath>..\..\lib\Ssms22\Microsoft.SqlServer.SqlEnum.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>SqlPilot.Package</RootNamespace>
+    <AssemblyName>SqlPilot.Package</AssemblyName>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <UseWPF>true</UseWPF>
+    <Description>SSMS 18/20 extension package for SQL Pilot (VSSDK 15.x)</Description>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>MSB3277</NoWarn>
+    <GeneratePkgDefFile>true</GeneratePkgDefFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+  </PropertyGroup>
+
+  <!-- Link all source files from modern Package -->
+  <ItemGroup>
+    <Compile Include="..\SqlPilot.Package\SqlPilotPackage.cs" Link="SqlPilotPackage.cs" />
+    <Compile Include="..\SqlPilot.Package\SqlPilotToolWindow.cs" Link="SqlPilotToolWindow.cs" />
+    <Compile Include="..\SqlPilot.Package\SqlPilotToolWindowControl.xaml.cs" Link="SqlPilotToolWindowControl.xaml.cs" />
+    <Compile Include="..\SqlPilot.Package\Commands\OpenSearchCommand.cs" Link="Commands\OpenSearchCommand.cs" />
+    <Compile Include="..\SqlPilot.Package\Integration\ObjectExplorerBridge.cs" Link="Integration\ObjectExplorerBridge.cs" />
+    <Compile Include="..\SqlPilot.Package\Integration\ScriptingBridge.cs" Link="Integration\ScriptingBridge.cs" />
+    <Compile Include="..\SqlPilot.Package\Integration\ManagedConnectionWrapper.cs" Link="Integration\ManagedConnectionWrapper.cs" />
+    <Compile Include="..\SqlPilot.Package\Integration\ReflectionTypeCache.cs" Link="Integration\ReflectionTypeCache.cs" />
+    <Compile Include="..\SqlPilot.Package\Options\SqlPilotOptionsPage.cs" Link="Options\SqlPilotOptionsPage.cs" />
+    <Compile Include="..\SqlPilot.Package\Services\UpdateChecker.cs" Link="Services\UpdateChecker.cs" />
+    <Compile Include="..\SqlPilot.Package\Services\ConnectionWatcher.cs" Link="Services\ConnectionWatcher.cs" />
+    <Page Include="..\SqlPilot.Package\SqlPilotToolWindowControl.xaml" Link="SqlPilotToolWindowControl.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SqlPilot.Core\SqlPilot.Core.csproj" />
+    <ProjectReference Include="..\SqlPilot.Smo.Legacy\SqlPilot.Smo.Legacy.csproj" />
+    <ProjectReference Include="..\SqlPilot.UI\SqlPilot.UI.csproj" />
+  </ItemGroup>
+
+  <!-- VSSDK 15.x for SSMS 18/20 (VS Shell 15.0.0.0) -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Shell.15.0" Version="15.8.28010" />
+    <PackageReference Include="Microsoft.VisualStudio.Shell.Framework" Version="15.8.28010" />
+    <PackageReference Include="Microsoft.VisualStudio.Shell.Interop" Version="15.8.28010" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading" Version="15.8.209" />
+    <PackageReference Include="envdte" Version="8.0.2" />
+    <PackageReference Include="envdte80" Version="8.0.2" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="15.9.3039">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Design" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="SqlWorkbench.Interfaces">
+      <HintPath>..\..\lib\Ssms18\SqlWorkbench.Interfaces.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.Smo">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.Smo.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.ConnectionInfo">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.ConnectionInfo.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.SqlEnum">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.SqlEnum.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.Management.Sdk.Sfc">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.Management.Sdk.Sfc.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

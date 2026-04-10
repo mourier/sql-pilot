@@ -1,0 +1,15 @@
+{
+  "id": "SqlPilot.Spike",
+  "version": "0.0.1",
+  "type": "Vsix",
+  "vsixId": "SqlPilot.Spike.00000000-0000-0000-0000-000000000001",
+  "extensionDir": "[installdir]\\Common7\\IDE\\Extensions\\SqlPilotSpike",
+  "files": [
+    {"fileName": "/extension.vsixmanifest", "sha256": null},
+    {"fileName": "/SqlPilot.Spike.dll", "sha256": null},
+    {"fileName": "/SqlPilot.Spike.pkgdef", "sha256": null},
+    {"fileName": "/manifest.json", "sha256": null},
+    {"fileName": "/catalog.json", "sha256": null}
+  ],
+  "installSizes": {"targetDrive": 15000}
+}

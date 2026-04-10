@@ -1,0 +1,20 @@
+[$RootKey$\Packages\{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}]
+@="SqlPilotPackage"
+"InprocServer32"="$WinDir$\SYSTEM32\MSCOREE.DLL"
+"Class"="SqlPilot.Package.SqlPilotPackage"
+"CodeBase"="$PackageFolder$\SqlPilot.Package.dll"
+"AllowsBackgroundLoad"=dword:00000001
+
+[$RootKey$\AutoLoadPackages\{adfc4e64-0397-11d1-9f4e-00a0c911004f}]
+"{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}"=dword:00000002
+
+[$RootKey$\ToolWindows\{c7d8e9f0-1a2b-3c4d-5e6f-7a8b9c0d1e2f}]
+@="SqlPilot.Package.SqlPilotToolWindow"
+"Package"="{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}"
+"Style"="Tabbed"
+"Window"="d114938f-591c-46cf-a785-500a82d97410"
+
+[$RootKey$\InstalledProducts\SQL Pilot]
+@="Quick Search Tool for SSMS"
+"Package"="{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}"
+"ProductDetails"="1.0.0"

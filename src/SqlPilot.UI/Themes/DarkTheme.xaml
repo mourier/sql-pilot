@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Backgrounds -->
+  <SolidColorBrush x:Key="SearchBoxBackground" Color="#2D2D30" />
+  <SolidColorBrush x:Key="ResultsBackground" Color="#1E1E1E" />
+  <SolidColorBrush x:Key="StatusBarBackground" Color="#252526" />
+  <SolidColorBrush x:Key="BadgeBackground" Color="#3E3E42" />
+
+  <!-- Foregrounds -->
+  <SolidColorBrush x:Key="PrimaryForeground" Color="#E0E0E0" />
+  <SolidColorBrush x:Key="SecondaryForeground" Color="#9E9E9E" />
+  <SolidColorBrush x:Key="IconForeground" Color="#64B5F6" />
+  <SolidColorBrush x:Key="BadgeForeground" Color="#B0BEC5" />
+  <SolidColorBrush x:Key="HighlightForeground" Color="#FFAB40" />
+
+</ResourceDictionary>

@@ -1,0 +1,12 @@
+<Window x:Class="SqlPilot.UI.Demo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SqlPilot.UI.Controls;assembly=SqlPilot.UI"
+        Title="SQL Pilot - UI Demo"
+        Width="500" Height="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E">
+
+  <controls:SearchControl x:Name="SearchPanel" />
+
+</Window>

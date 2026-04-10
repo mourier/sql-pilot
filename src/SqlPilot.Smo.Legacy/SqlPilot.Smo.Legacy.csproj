@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>SqlPilot.Smo</RootNamespace>
+    <AssemblyName>SqlPilot.Smo</AssemblyName>
+    <Description>SMO-based database object provider for SQL Pilot (SSMS 18/20)</Description>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <!-- Share source from modern Smo project -->
+  <ItemGroup>
+    <Compile Include="..\SqlPilot.Smo\SmoDatabaseObjectProvider.cs" Link="SmoDatabaseObjectProvider.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SqlPilot.Core\SqlPilot.Core.csproj" />
+  </ItemGroup>
+
+  <!-- SSMS 18 SMO DLLs (version 16.x) -->
+  <ItemGroup>
+    <Reference Include="Microsoft.SqlServer.Smo">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.Smo.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.ConnectionInfo">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.ConnectionInfo.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.Management.Sdk.Sfc">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.Management.Sdk.Sfc.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.SqlServer.SqlEnum">
+      <HintPath>..\..\lib\Ssms18\Microsoft.SqlServer.SqlEnum.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

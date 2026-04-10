@@ -1,0 +1,1 @@
+{"manifestVersion":"1.1","info":{"id":"SqlPilot,version=1.0.0"},"packages":[{"id":"SqlPilot","version":"1.0.0","type":"Vsix","payloads":[{"fileName":"SqlPilot.vsix","size":500000}],"vsixId":"SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b","extensionDir":"[installdir]\\Common7\\IDE\\Extensions\\SqlPilot","installSizes":{"targetDrive":500000}}]}

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore NuGet packages
+        run: nuget restore SqlPilot.sln
+
+      - name: Build
+        run: msbuild SqlPilot.sln /p:Configuration=Release /p:Platform="Any CPU" /m
+
+      - name: Run Tests
+        run: dotnet test tests/SqlPilot.Core.Tests/SqlPilot.Core.Tests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SqlPilot-build
+          path: src/SqlPilot.Package/bin/Release/
+          retention-days: 14

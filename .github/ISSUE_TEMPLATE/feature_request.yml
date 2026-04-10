@@ -1,0 +1,16 @@
+name: Feature Request
+description: Suggest a new feature for SQL Pilot
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: What would you like SQL Pilot to do?
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Why would this be useful? What problem does it solve?

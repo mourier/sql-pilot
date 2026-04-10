@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011"
+                 xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+  <Metadata>
+    <Identity Id="SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b"
+              Version="1.0.0"
+              Language="en-US"
+              Publisher="SQL Pilot Contributors" />
+    <DisplayName>SQL Pilot</DisplayName>
+    <Description xml:space="preserve">Quick Search Tool for SQL Server Management Studio. Rapidly find tables, views, stored procedures, and functions across all databases.</Description>
+    <MoreInfo>https://github.com/mourier/sql-pilot</MoreInfo>
+    <License>LICENSE</License>
+    <Tags>SQL, SSMS, Search, Database, Quick Find</Tags>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Version="[21.0,23.0)" Id="Microsoft.VisualStudio.Ssms">
+      <ProductArchitecture>amd64</ProductArchitecture>
+    </InstallationTarget>
+  </Installation>
+  <Dependencies>
+    <Dependency Id="Microsoft.Framework.NDP"
+                DisplayName="Microsoft .NET Framework"
+                d:Source="Manual"
+                Version="[4.7.2,)" />
+  </Dependencies>
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.VsPackage"
+           d:Source="Project"
+           d:ProjectName="SqlPilot.Package"
+           Path="|SqlPilot.Package;PkgdefProjectOutputGroup|" />
+  </Assets>
+  <Prerequisites>
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor"
+                  Version="[17.0,)"
+                  DisplayName="Visual Studio core editor" />
+  </Prerequisites>
+</PackageManifest>

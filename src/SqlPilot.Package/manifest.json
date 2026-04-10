@@ -1,0 +1,20 @@
+{
+  "id": "SqlPilot",
+  "version": "1.0.0",
+  "type": "Vsix",
+  "vsixId": "SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b",
+  "extensionDir": "[installdir]\\Common7\\IDE\\Extensions\\SqlPilot",
+  "files": [
+    {"fileName": "/extension.vsixmanifest", "sha256": null},
+    {"fileName": "/SqlPilot.Package.dll", "sha256": null},
+    {"fileName": "/SqlPilot.Core.dll", "sha256": null},
+    {"fileName": "/SqlPilot.Smo.dll", "sha256": null},
+    {"fileName": "/SqlPilot.UI.dll", "sha256": null},
+    {"fileName": "/SqlPilot.Package.pkgdef", "sha256": null},
+    {"fileName": "/CommunityToolkit.Mvvm.dll", "sha256": null},
+    {"fileName": "/System.Text.Json.dll", "sha256": null},
+    {"fileName": "/manifest.json", "sha256": null},
+    {"fileName": "/catalog.json", "sha256": null}
+  ],
+  "installSizes": {"targetDrive": 500000}
+}

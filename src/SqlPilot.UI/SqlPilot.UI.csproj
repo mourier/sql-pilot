@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>SqlPilot.UI</RootNamespace>
+    <AssemblyName>SqlPilot.UI</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <Description>WPF UI controls for SQL Pilot</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SqlPilot.Core\SqlPilot.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+</Project>

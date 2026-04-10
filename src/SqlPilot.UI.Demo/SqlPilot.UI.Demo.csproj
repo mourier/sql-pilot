@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>SqlPilot.UI.Demo</RootNamespace>
+    <AssemblyName>SqlPilot.UI.Demo</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <Description>Standalone WPF demo app for SQL Pilot UI development</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SqlPilot.Core\SqlPilot.Core.csproj" />
+    <ProjectReference Include="..\SqlPilot.UI\SqlPilot.UI.csproj" />
+  </ItemGroup>
+</Project>

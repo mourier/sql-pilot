@@ -1,0 +1,13 @@
+SqlPilot.Package.dll
+SqlPilot.Core.dll
+SqlPilot.Smo.dll
+SqlPilot.UI.dll
+CommunityToolkit.Mvvm.dll
+System.Text.Json.dll
+System.Text.Encodings.Web.dll
+System.Buffers.dll
+System.Memory.dll
+System.Numerics.Vectors.dll
+System.Runtime.CompilerServices.Unsafe.dll
+System.Threading.Tasks.Extensions.dll
+System.ValueTuple.dll

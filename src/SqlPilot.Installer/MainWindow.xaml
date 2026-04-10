@@ -1,0 +1,221 @@
+<Window x:Class="SqlPilot.Installer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:SqlPilot.Installer.ViewModels"
+        Title="{Binding ProductTitle}"
+        Width="560"
+        SizeToContent="Height"
+        MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize"
+        Background="{StaticResource WindowBgBrush}"
+        UseLayoutRounding="True"
+        FontFamily="Segoe UI Variable, Segoe UI"
+        FontSize="13">
+
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+  </Window.Resources>
+
+  <Window.DataContext>
+    <vm:MainViewModel />
+  </Window.DataContext>
+
+  <Border Padding="0">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <!-- ─── Header (logo + title) — shown on every view ─── -->
+      <Border Grid.Row="0" Padding="24,20,24,16">
+        <StackPanel Orientation="Horizontal">
+          <Image x:Name="LogoImage" Width="88" Height="88" Margin="0,0,18,0"
+                 RenderOptions.BitmapScalingMode="HighQuality">
+            <Image.Effect>
+              <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.18" />
+            </Image.Effect>
+          </Image>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="SQL Pilot" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ProductTagline}" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0" />
+            <TextBlock FontSize="11" Margin="0,2,0,0">
+              <Hyperlink Foreground="{StaticResource MutedTextBrush}"
+                         TextDecorations="None"
+                         Command="{Binding OpenRepoCommand}">
+                <Run Text="github.com/mourier/sql-pilot" />
+              </Hyperlink>
+            </TextBlock>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Rectangle Grid.Row="0" Height="1" Fill="{StaticResource HairlineBrush}" VerticalAlignment="Bottom" />
+
+      <!-- ─── Body (one of: Selection, Progress, Done, Error) ─── -->
+      <Grid Grid.Row="1" Margin="24,16,24,16">
+
+        <!-- View 1: Selection -->
+        <StackPanel Visibility="{Binding IsInSelectionView, Converter={StaticResource BoolToVis}}">
+          <TextBlock Text="No supported SSMS installation found"
+                     FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource WarnFgBrush}"
+                     Visibility="{Binding HasNothingDetected, Converter={StaticResource BoolToVis}}" />
+          <TextBlock TextWrapping="Wrap" Margin="0,8,0,0"
+                     Foreground="{StaticResource MutedTextBrush}"
+                     Visibility="{Binding HasNothingDetected, Converter={StaticResource BoolToVis}}"
+                     Text="SQL Pilot supports SSMS 18, 20, and 22. Install one of those first, then run this installer again." />
+
+          <StackPanel Visibility="{Binding HasAnyDetected, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Detected SSMS installations" FontWeight="SemiBold" FontSize="13" />
+            <TextBlock Text="Pick which versions to install SQL Pilot into."
+                       Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,2,0,12" />
+
+            <ItemsControl ItemsSource="{Binding DetectedVersions}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,8" Padding="14,10" CornerRadius="6"
+                          Background="{StaticResource CardBgBrush}"
+                          BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1">
+                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Cursor="Hand">
+                      <StackPanel Margin="6,0,0,0">
+                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="{Binding StateText}" FontSize="11"
+                                   Foreground="{StaticResource MutedTextBrush}" Margin="0,1,0,0" />
+                      </StackPanel>
+                    </CheckBox>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- "What this will do" summary -->
+            <Border Margin="0,8,0,0" Padding="12,10" CornerRadius="6"
+                    Background="#F0F4F8" BorderBrush="{StaticResource HairlineBrush}" BorderThickness="1">
+              <StackPanel>
+                <TextBlock Text="When you click Install" FontWeight="SemiBold" FontSize="12" />
+                <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" Foreground="{StaticResource MutedTextBrush}">
+                  <Run Text="• Download the matching release ZIP from " />
+                  <Run Text="github.com/mourier/sql-pilot/releases" FontFamily="Consolas" />
+                  <LineBreak />
+                  <Run Text="• Verify SHA-256 (if published in the release notes)" />
+                  <LineBreak />
+                  <Run Text="• Copy the extension files into the selected SSMS folders" />
+                  <LineBreak />
+                  <Run Text="• Invalidate SSMS caches so the extension loads on next launch" />
+                </TextBlock>
+              </StackPanel>
+            </Border>
+
+            <!-- "SSMS is running" warning -->
+            <Border Margin="0,12,0,0" Padding="12,10" CornerRadius="6"
+                    Background="{StaticResource WarnBgBrush}"
+                    Visibility="{Binding IsAnySsmsRunning, Converter={StaticResource BoolToVis}}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="⚠  SSMS is currently running" FontWeight="SemiBold" Foreground="{StaticResource WarnFgBrush}" FontSize="12" />
+                  <TextBlock Text="The installer can't replace files that are loaded by a running SSMS. Close SSMS first or click below."
+                             TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource WarnFgBrush}" Margin="0,2,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource SecondaryButton}"
+                        Content="Close SSMS"
+                        Margin="12,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding CloseSsmsCommand}" />
+              </Grid>
+            </Border>
+          </StackPanel>
+        </StackPanel>
+
+        <!-- View 2: Progress -->
+        <StackPanel Visibility="{Binding IsInProgressView, Converter={StaticResource BoolToVis}}">
+          <TextBlock Text="Installing SQL Pilot…" FontSize="16" FontWeight="SemiBold" />
+          <TextBlock Text="This usually takes 5–10 seconds." Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,4,0,16" />
+
+          <ItemsControl ItemsSource="{Binding ProgressSteps}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Margin="0,3">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="22" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{Binding Glyph}" FontFamily="Consolas" FontSize="14" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding DefaultLabel}" FontSize="13" />
+                    <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"
+                               Visibility="{Binding Detail, Converter={StaticResource BoolToVis}}" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <ProgressBar Margin="0,16,0,0" Height="8"
+                       Maximum="1.0"
+                       Value="{Binding OverallProgress, FallbackValue=0}"
+                       IsIndeterminate="{Binding OverallProgressUnknown}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Background="#E5E7EB"
+                       BorderThickness="0" />
+        </StackPanel>
+
+        <!-- View 3: Done -->
+        <StackPanel Visibility="{Binding IsInDoneView, Converter={StaticResource BoolToVis}}">
+          <TextBlock Text="✓  Installed successfully"
+                     FontSize="18" FontWeight="SemiBold"
+                     Foreground="{StaticResource OkBrush}" />
+          <TextBlock Text="{Binding DoneSummary}" TextWrapping="Wrap" Margin="0,12,0,0" FontSize="13" />
+        </StackPanel>
+
+        <!-- View 4: Error -->
+        <StackPanel Visibility="{Binding IsInErrorView, Converter={StaticResource BoolToVis}}">
+          <TextBlock Text="✗  Installation failed"
+                     FontSize="18" FontWeight="SemiBold"
+                     Foreground="#B91C1C" />
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Margin="0,12,0,0" FontSize="13" />
+          <TextBlock Margin="0,16,0,0" FontSize="11" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap"
+                     Text="If this looks like a network issue, check your internet connection and try again. For other errors, please report at github.com/mourier/sql-pilot/issues with the message above." />
+        </StackPanel>
+      </Grid>
+
+      <!-- ─── Footer (action buttons — depend on current view) ─── -->
+      <Rectangle Grid.Row="2" Height="1" Fill="{StaticResource HairlineBrush}" VerticalAlignment="Top" />
+      <Border Grid.Row="2" Padding="24,16">
+        <Grid>
+          <!-- Selection view buttons -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                      Visibility="{Binding IsInSelectionView, Converter={StaticResource BoolToVis}}">
+            <Button Content="Uninstall" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                    Visibility="{Binding ShowUninstallButton, Converter={StaticResource BoolToVis}}"
+                    IsEnabled="{Binding CanStartAction}"
+                    Command="{Binding UninstallCommand}" />
+            <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                    Command="{Binding CancelCommand}" />
+            <Button Content="Install" Style="{StaticResource PrimaryButton}"
+                    IsEnabled="{Binding CanStartAction}"
+                    Command="{Binding InstallCommand}" />
+          </StackPanel>
+
+          <!-- Progress view: cancel only -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                      Visibility="{Binding IsInProgressView, Converter={StaticResource BoolToVis}}">
+            <Button Content="Cancel" Style="{StaticResource SecondaryButton}"
+                    Command="{Binding CancelCommand}" />
+          </StackPanel>
+
+          <!-- Done / Error: close -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                      Visibility="{Binding IsTerminalView, Converter={StaticResource BoolToVis}}">
+            <Button Content="Close" Style="{StaticResource PrimaryButton}"
+                    Command="{Binding CloseCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</Window>

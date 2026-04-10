@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011"
+                 xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+  <Metadata>
+    <Identity Id="SqlPilot.Spike.00000000-0000-0000-0000-000000000001"
+              Version="0.0.1"
+              Language="en-US"
+              Publisher="SqlPilot" />
+    <DisplayName>SQL Pilot Spike</DisplayName>
+    <Description>Minimal spike to test SSMS 22 extension loading</Description>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Version="[21.0,23.0)" Id="Microsoft.VisualStudio.Ssms">
+      <ProductArchitecture>amd64</ProductArchitecture>
+    </InstallationTarget>
+  </Installation>
+  <Dependencies>
+    <Dependency Id="Microsoft.Framework.NDP"
+                DisplayName="Microsoft .NET Framework"
+                d:Source="Manual"
+                Version="[4.7.2,)" />
+  </Dependencies>
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.VsPackage"
+           d:Source="Project"
+           d:ProjectName="SqlPilot.Spike"
+           Path="|SqlPilot.Spike;PkgdefProjectOutputGroup|" />
+  </Assets>
+</PackageManifest>

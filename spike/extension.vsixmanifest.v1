@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Vsix xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Version="1.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2010">
+  <Identifier Id="SqlPilot.Spike.00000000-0000-0000-0000-000000000001">
+    <Name>SQL Pilot Spike</Name>
+    <Author>SqlPilot</Author>
+    <Version>0.0.1</Version>
+    <Description xml:space="preserve">Minimal spike to test SSMS extension loading</Description>
+    <Locale>1033</Locale>
+    <SupportedProducts>
+      <IsolatedShell Version="1.0">ssms</IsolatedShell>
+    </SupportedProducts>
+    <SupportedFrameworkRuntimeEdition MinVersion="4.0" MaxVersion="4.0" />
+  </Identifier>
+  <References />
+  <Content>
+    <VsPackage>SqlPilot.Spike.pkgdef</VsPackage>
+  </Content>
+</Vsix>

@@ -1,0 +1,17 @@
+SQL Pilot
+Copyright 2026 SQL Pilot Contributors
+
+This project was inspired by SQL Hunting Dog
+(https://github.com/bugzinga/sql-hunting-dog)
+Copyright 2014 Alexander Maslyukov, Maxim Novikov
+Licensed under the Apache License, Version 2.0
+
+SQL Hunting Dog was the original Quick Search Add-In for SQL Server
+Management Studio. While SQL Pilot is an independent implementation
+built from scratch, it owes its concept and design inspiration to the
+pioneering work of the SQL Hunting Dog team.
+
+We also acknowledge the contributions of the SQL Hunting Dog community,
+including PR authors pstraszak, FastNinja, and pklejnowski, whose work
+on SSMS 2016/2017 support informed our understanding of SSMS extension
+evolution.

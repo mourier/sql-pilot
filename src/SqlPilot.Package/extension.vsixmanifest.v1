@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Vsix xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Version="1.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2010">
+  <Identifier Id="SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b">
+    <Name>SQL Pilot</Name>
+    <Author>SQL Pilot Contributors</Author>
+    <Version>1.0.0</Version>
+    <Description xml:space="preserve">Quick Search Tool for SQL Server Management Studio</Description>
+    <Locale>1033</Locale>
+    <SupportedProducts>
+      <IsolatedShell Version="1.0">ssms</IsolatedShell>
+    </SupportedProducts>
+    <SupportedFrameworkRuntimeEdition MinVersion="4.0" MaxVersion="4.0" />
+  </Identifier>
+  <References />
+  <Content>
+    <VsPackage>SqlPilot.Package.pkgdef</VsPackage>
+  </Content>
+</Vsix>

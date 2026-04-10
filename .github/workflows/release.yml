@@ -1,0 +1,183 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Compute version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          # Accept MAJOR.MINOR.PATCH with an optional semver-style pre-release
+          # suffix (e.g. 1.2.0-beta.1, 0.0.1-test).
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            Write-Error "Tag '$tag' does not parse to a valid semver version."
+            exit 1
+          }
+          # MSBuild's AssemblyVersion must be strictly numeric. Strip any
+          # pre-release suffix when passing to /p:Version so the assembly
+          # version is always MAJOR.MINOR.PATCH.0.
+          $numericVersion = $version -replace '-.*$', ''
+          Write-Host "Tag: $tag  ->  display version: $version  ->  numeric: $numericVersion"
+          "version=$version"               | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "numericVersion=$numericVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag"                       | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Patch version into manifests and source
+        shell: pwsh
+        run: |
+          # Use the numeric version (no pre-release suffix) — VSIX manifest
+          # schemas and SSMS's pkgdef parser both want strict MAJOR.MINOR.PATCH.
+          # The tag itself (e.g. v0.0.1-test) still drives the GitHub release name.
+          $version = "${{ steps.version.outputs.numericVersion }}"
+          $pkgDir = "src/SqlPilot.Package"
+
+          # VSSDK build-time manifest (Identity Version attribute)
+          (Get-Content "$pkgDir/source.extension.vsixmanifest") `
+            -replace 'Version="1\.0\.0"', "Version=`"$version`"" |
+            Set-Content "$pkgDir/source.extension.vsixmanifest"
+
+          # SSMS 22 ship manifest (v2) — patch only the Identity element's Version,
+          # NOT the PackageManifest schema Version which is 2.0.0
+          $v2 = Get-Content "$pkgDir/extension.vsixmanifest.v2" -Raw
+          $v2 = $v2 -replace '(<Identity\s[^>]*?Version=")1\.0\.0(")', "`${1}$version`${2}"
+          Set-Content "$pkgDir/extension.vsixmanifest.v2" -Value $v2 -NoNewline
+
+          # SSMS 18/20 ship manifest (v1) — patch only the <Version> element,
+          # NOT the Vsix schema Version attribute which is also 1.0.0
+          (Get-Content "$pkgDir/extension.vsixmanifest.v1") `
+            -replace '<Version>1\.0\.0</Version>', "<Version>$version</Version>" |
+            Set-Content "$pkgDir/extension.vsixmanifest.v1"
+
+          # manifest.json (SSMS 22)
+          (Get-Content "$pkgDir/manifest.json") `
+            -replace '"version": "1\.0\.0"', "`"version`": `"$version`"" |
+            Set-Content "$pkgDir/manifest.json"
+
+          # catalog.json (SSMS 22) — two occurrences
+          (Get-Content "$pkgDir/catalog.json") `
+            -replace 'version=1\.0\.0', "version=$version" `
+            -replace '"version":"1\.0\.0"', "`"version`":`"$version`"" |
+            Set-Content "$pkgDir/catalog.json"
+
+          # pkgdef (ProductDetails shown in SSMS About dialog)
+          (Get-Content "$pkgDir/SqlPilot.Package.pkgdef") `
+            -replace '"ProductDetails"="1\.0\.0"', "`"ProductDetails`"=`"$version`"" |
+            Set-Content "$pkgDir/SqlPilot.Package.pkgdef"
+
+          # InstalledProductRegistration attribute
+          (Get-Content "$pkgDir/SqlPilotPackage.cs") `
+            -replace '\[InstalledProductRegistration\("SQL Pilot", "Quick Search Tool for SSMS", "1\.0\.0"\)\]', "[InstalledProductRegistration(`"SQL Pilot`", `"Quick Search Tool for SSMS`", `"$version`")]" |
+            Set-Content "$pkgDir/SqlPilotPackage.cs"
+
+          Write-Host "Version patching complete."
+
+      - name: Restore NuGet packages
+        run: nuget restore SqlPilot.sln
+
+      - name: Build Release
+        run: msbuild SqlPilot.sln /p:Configuration=Release /p:Platform="Any CPU" /p:Version=${{ steps.version.outputs.numericVersion }} /m
+
+      - name: Run Tests
+        run: dotnet test tests/SqlPilot.Core.Tests/SqlPilot.Core.Tests.csproj --configuration Release --no-build
+
+      - name: Create Release Package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag     = "${{ steps.version.outputs.tag }}"
+
+          $artifacts = "artifacts"
+          $packageDir = "$artifacts/SqlPilot-$tag"
+          $ssms22Dir = "$packageDir/SSMS22"
+          $ssms18Dir = "$packageDir/SSMS18-20"
+          New-Item -ItemType Directory -Path $ssms22Dir -Force | Out-Null
+          New-Item -ItemType Directory -Path $ssms18Dir -Force | Out-Null
+
+          # DLL whitelist lives in build/SqlPilotDlls.txt so release.yml and the
+          # dev-deploy scripts share one source of truth. Missing files are
+          # silently skipped (Test-Path guard).
+          $dlls = Get-Content "build/SqlPilotDlls.txt" | Where-Object { $_ -and -not $_.StartsWith('#') }
+
+          function Copy-BuildOutput {
+            param($BuildDir, $Target)
+            foreach ($dll in $dlls) {
+              $src = Join-Path $BuildDir $dll
+              if (Test-Path $src) {
+                Copy-Item $src $Target -Force
+              }
+            }
+          }
+
+          # SSMS 22 (Modern VSSDK 17.x)
+          Copy-BuildOutput "src/SqlPilot.Package/bin/Release/net472" $ssms22Dir
+          Copy-Item "src/SqlPilot.Package/SqlPilot.Package.pkgdef"       $ssms22Dir -Force
+          Copy-Item "src/SqlPilot.Package/extension.vsixmanifest.v2"     "$ssms22Dir/extension.vsixmanifest" -Force
+          Copy-Item "src/SqlPilot.Package/manifest.json"                  $ssms22Dir -Force
+          Copy-Item "src/SqlPilot.Package/catalog.json"                   $ssms22Dir -Force
+
+          # SSMS 18/20 (Legacy VSSDK 15.x)
+          Copy-BuildOutput "src/SqlPilot.Package.Legacy/bin/Release/net472" $ssms18Dir
+          Copy-Item "src/SqlPilot.Package/SqlPilot.Package.pkgdef"       $ssms18Dir -Force
+          Copy-Item "src/SqlPilot.Package/extension.vsixmanifest.v1"     "$ssms18Dir/extension.vsixmanifest" -Force
+
+          # Installer, license, notice, readme at package root.
+          # _SsmsHelpers.ps1 is dot-sourced by both Install and Uninstall
+          # scripts and must ship alongside them.
+          Copy-Item "installer/Install-SqlPilot.ps1"    $packageDir -Force
+          Copy-Item "installer/Uninstall-SqlPilot.ps1"  $packageDir -Force
+          Copy-Item "installer/_SsmsHelpers.ps1"        $packageDir -Force
+          Copy-Item "LICENSE" $packageDir -Force
+          Copy-Item "NOTICE"  $packageDir -Force
+          Copy-Item "README.md" "$packageDir/README.md" -Force
+
+          Write-Host "Payload package contents:"
+          Get-ChildItem $packageDir -Recurse | Select-Object FullName
+
+          Compress-Archive -Path "$packageDir/*" -DestinationPath "$artifacts/SqlPilot-$tag.zip"
+
+          # ─── Friendly WPF installer (separate ZIP) ───
+          # SqlPilotInstaller.exe + its dependency DLLs. End users download
+          # this small ZIP, extract it, and run the .exe — the installer
+          # then fetches the payload ZIP above from the same release.
+          $installerStaging = "$artifacts/SqlPilotInstaller-$tag"
+          New-Item -ItemType Directory -Path $installerStaging -Force | Out-Null
+          Copy-Item "src/SqlPilot.Installer/bin/Release/net472/*" $installerStaging -Recurse -Force
+
+          Write-Host ""
+          Write-Host "Installer package contents:"
+          Get-ChildItem $installerStaging -Recurse | Select-Object FullName
+
+          Compress-Archive -Path "$installerStaging/*" -DestinationPath "$artifacts/SqlPilotInstaller-$tag.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/SqlPilot-*.zip
+            artifacts/SqlPilotInstaller-*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}

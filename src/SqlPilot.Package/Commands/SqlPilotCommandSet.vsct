@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable"
+              xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidSqlPilotPackage">
+    <Groups>
+      <Group guid="guidSqlPilotCmdSet" id="SqlPilotMenuGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidSqlPilotCmdSet" id="OpenSearchCommandId" priority="0x0100" type="Button">
+        <Parent guid="guidSqlPilotCmdSet" id="SqlPilotMenuGroup" />
+        <Strings>
+          <ButtonText>SQL Pilot Search</ButtonText>
+          <ToolTipText>Open SQL Pilot Quick Search (Ctrl+Shift+D)</ToolTipText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <KeyBindings>
+    <KeyBinding guid="guidSqlPilotCmdSet" id="OpenSearchCommandId"
+                editor="guidVSStd97"
+                key1="D" mod1="Control Shift" />
+  </KeyBindings>
+
+  <Symbols>
+    <GuidSymbol name="guidSqlPilotPackage" value="{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}" />
+    <GuidSymbol name="guidSqlPilotCmdSet" value="{a1b2c3d4-5e6f-7a8b-9c0d-e1f2a3b4c5d6}">
+      <IDSymbol name="SqlPilotMenuGroup" value="0x1020" />
+      <IDSymbol name="OpenSearchCommandId" value="0x0100" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>
