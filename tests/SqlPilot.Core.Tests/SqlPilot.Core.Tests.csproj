@@ -18,7 +18,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FluentAssertions" Version="7.1.0" />
+    <!-- Pinned below 8.0: FluentAssertions switched to the non-commercial Xceed Community License in v8 (Jan 2025). v7.x stays Apache 2.0. -->
+    <PackageReference Include="FluentAssertions" Version="[7.1.0,8.0.0)" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
   </ItemGroup>
 </Project>

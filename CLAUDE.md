@@ -92,6 +92,20 @@ Many integration points (`IObjectExplorerService.Tree`, `OpenTableHelperClass.Ed
 
 When using SMO enums or properties that may differ across SMO 16/17/18, prefer `enum.ToString().Contains("...")` or reflection over hard typed-enum comparisons — the same enum value can have different members across SMO versions and the Legacy build will fail to load if you bind to one that doesn't exist in 16.x. (Counter-example: `UserDefinedFunctionType.Scalar` exists in all three and is safe.)
 
+## Vendored Microsoft DLLs in `lib/` — intentional, don't purge
+
+`lib/Ssms18/` and `lib/Ssms22/` contain Microsoft-owned compiled assemblies (`SqlWorkbench.Interfaces.dll`, `SqlWorkbench.Interfaces.v15.dll`, `Microsoft.SqlServer.Smo.dll`, `ConnectionInfo.dll`, `Management.Sdk.Sfc.dll`, `SqlEnum.dll`) copied from SSMS install directories. Every `<Reference>` to these uses `<Private>false</Private>` so they are **not shipped** in the release — `build/SqlPilotDlls.txt` is the authoritative redistribution list, and none of the `lib/` DLLs are on it. See `lib/README.md` for the fig-leaf disclaimer.
+
+This is the same pattern used by SQL Hunting Dog (since 2014), Sql4Cds, SSMSPlus, SSMS-Schema-Folders, and most other OSS SSMS extensions — no official NuGet or open-source source for `SqlWorkbench.Interfaces.dll` exists. **Do not propose removing the vendored DLLs** as a licensing concern; the decision was made after an audit in April 2026 to follow community precedent. If you add new files to `lib/`, match the existing pattern: `<Private>false</Private>`, mentioned in `lib/README.md`, and never referenced by anything in `build/SqlPilotDlls.txt`.
+
+The MIT-licensed `Microsoft.SqlServer.SqlManagementObjects` NuGet package could technically replace the SMO DLLs, but since `SqlWorkbench.Interfaces.dll` has to stay vendored either way, switching only the SMO ones would be churn without meaningful risk reduction.
+
+## FluentAssertions is pinned below 8.0 — do not bump
+
+`tests/SqlPilot.Core.Tests/SqlPilot.Core.Tests.csproj` pins `FluentAssertions` as `Version="[7.1.0,8.0.0)"`. **Don't collapse this to a plain version string, don't bump to 8.x, and reject any dependabot/Copilot PR that upgrades it.**
+
+v8 (Jan 2025) switched from Apache 2.0 to the Xceed Community License, which restricts commercial use and requires a paid license (~$130/dev/yr). v7.x stays Apache 2.0 indefinitely per the maintainers. SQL Pilot is Apache 2.0 and needs to remain freely usable in commercial settings, so v8 is off the table. If test-suite needs ever outgrow v7's API, switch libraries (Shouldly, or plain xUnit asserts) rather than bumping.
+
 ## Keep README and docs in sync
 
 After any non-trivial change, **check whether `README.md` and `docs/` need updating**. The docs aren't auto-generated from code, so they drift unless someone notices. Specifically:
