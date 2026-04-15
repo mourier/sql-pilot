@@ -122,16 +122,14 @@ namespace SqlPilot.Package.Integration
         /// <summary>
         /// Walks OE root nodes to find the URN-style server name that matches
         /// the given logical server name. SSMS strips Azure SQL domain suffixes in URNs
-        /// (e.g. "foo.database.windows.net" → "foo"), so callers need the actual URN name.
-        /// For non-Azure servers the URN name equals the logical name, so we skip the walk.
+        /// (e.g. "foo.database.windows.net" → "foo"), and for on-prem the logical name
+        /// used in the SqlPilot index (raw IP address or "HOST\INSTANCE" syntax) may
+        /// not exactly match what OE stored in its URN. Always walk OE; fall back to
+        /// the logical name only if no matching root node is found.
         /// </summary>
         public string ResolveUrnServerName(string logicalServerName)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-
-            // Only Azure SQL needs URN resolution — on-prem URNs match the logical server name
-            if (!ConnectionDescriptor.IsAzureSqlServerName(logicalServerName))
-                return logicalServerName;
 
             var oes = GetObjectExplorerService();
             if (oes == null) return logicalServerName;
@@ -163,6 +161,62 @@ namespace SqlPilot.Package.Integration
             }
 
             return logicalServerName;
+        }
+
+        /// <summary>
+        /// Returns all URN-style server names currently shown as roots in Object Explorer,
+        /// with the best prefix-match candidate listed first. Callers that need to
+        /// resolve an object URN (e.g. for <c>FindNode</c>) should try each in order
+        /// until one succeeds. This handles the IP-vs-hostname case where the logical
+        /// connection name (a raw IP address) doesn't match the URN name OE registered
+        /// (the resolved hostname).
+        /// </summary>
+        public System.Collections.Generic.List<string> GetCandidateUrnServerNames(string logicalServerName)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var candidates = new System.Collections.Generic.List<string>();
+            var oes = GetObjectExplorerService();
+            if (oes == null) { candidates.Add(logicalServerName); return candidates; }
+
+            var oeControl = GetObjectExplorerControl();
+            if (!(oeControl is TreeView treeView)) { candidates.Add(logicalServerName); return candidates; }
+
+            var inodeInfoType = ReflectionTypeCache.FindType("Microsoft.SqlServer.Management.UI.VSIntegration.ObjectExplorer.INodeInformation");
+            if (inodeInfoType == null) { candidates.Add(logicalServerName); return candidates; }
+
+            string bestMatch = null;
+            foreach (TreeNode root in treeView.Nodes)
+            {
+                if (!(root is IServiceProvider sp)) continue;
+                var rootNodeInfo = sp.GetService(inodeInfoType);
+                var ctx = rootNodeInfo?.GetType().GetProperty("Context")?.GetValue(rootNodeInfo)?.ToString();
+                if (string.IsNullOrEmpty(ctx) || !ctx.StartsWith("Server[@Name='")) continue;
+
+                int start = "Server[@Name='".Length;
+                int end = ctx.IndexOf('\'', start);
+                if (end <= start) continue;
+
+                string rootServer = ctx.Substring(start, end - start);
+                if (bestMatch == null &&
+                    (logicalServerName.StartsWith(rootServer, StringComparison.OrdinalIgnoreCase)
+                     || rootServer.StartsWith(logicalServerName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    bestMatch = rootServer;
+                }
+                else
+                {
+                    candidates.Add(rootServer);
+                }
+            }
+
+            if (bestMatch != null) candidates.Insert(0, bestMatch);
+            bool hasLogical = false;
+            foreach (var c in candidates)
+                if (string.Equals(c, logicalServerName, StringComparison.OrdinalIgnoreCase)) { hasLogical = true; break; }
+            if (!hasLogical) candidates.Add(logicalServerName);
+
+            return candidates;
         }
 
         private string TryGetServerFromNode(TreeNode node)

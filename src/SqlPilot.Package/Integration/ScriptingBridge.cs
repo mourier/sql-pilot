@@ -63,7 +63,103 @@ namespace SqlPilot.Package.Integration
         public void ScriptSelectTopN(DatabaseObject obj, int topN = 100)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+
+            var dte = _serviceProvider.GetService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
+
+            // Modern (SSMS 22, VS Shell 17+): arm the DocumentOpened handler before
+            // creating the doc so Query.Execute fires reactively once the connection
+            // is wired.
+            if (_isModernSsms && dte != null) ArmAutoExecuteOnNextDocument(dte);
+
             CreateSqlDocument($"SELECT TOP {topN} *\r\nFROM {BuildTableReference(obj)}", obj);
+
+            // Legacy (SSMS 18/20, VS Shell 15): DTE's Query.Execute is a silent
+            // no-op on programmatically-created query windows even when
+            // IsAvailable=true. Mirror Hunting Dog: send F5 to whatever has focus
+            // right after CreateSqlDocument returns (which is the new window).
+            if (!_isModernSsms)
+            {
+                try { System.Windows.Forms.SendKeys.Send("{F5}"); }
+                catch (Exception ex) { Debug.WriteLine($"SqlPilot legacy SendKeys: {ex.Message}"); }
+            }
+        }
+
+        // VSSDK Shell assembly major version: v15.x = SSMS 18/20, v17.x+ = SSMS 22+.
+        // DTE.Version is unreliable here — SSMS 18 reports "2019.0150".
+        private static readonly bool _isModernSsms = ComputeIsModernSsms();
+
+        private static bool ComputeIsModernSsms()
+        {
+            try
+            {
+                var shellVer = typeof(Microsoft.VisualStudio.Shell.AsyncPackage).Assembly.GetName().Version;
+                return shellVer != null && shellVer.Major >= 17;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Subscribes a one-shot handler to <c>DocumentEvents.DocumentOpened</c> that
+        /// fires <c>Query.Execute</c> when the next document opens. Used to auto-run
+        /// the SELECT TOP N query created by <see cref="ScriptSelectTopN"/>.
+        /// Reacting to the actual open event is more robust than guessing a fixed
+        /// delay — SSMS wires the connection on a background thread after the editor
+        /// surfaces. A safety auto-unsubscribe fires after a short window in case no
+        /// document opens (e.g. ScriptFactory failed silently).
+        /// </summary>
+        private void ArmAutoExecuteOnNextDocument(EnvDTE80.DTE2 dte)
+        {
+            try
+            {
+                var docEvents = dte.Events.DocumentEvents;
+                EnvDTE._dispDocumentEvents_DocumentOpenedEventHandler handler = null;
+                handler = (EnvDTE.Document doc) =>
+                {
+                    try { docEvents.DocumentOpened -= handler; } catch { }
+                    // Activate + Execute must happen OUTSIDE this event handler —
+                    // SSMS 18 throws "This method or property cannot be called within
+                    // an event handler" for Activate(). Dispatch both together.
+                    DispatchActivateAndExecute(dte, doc);
+                };
+                docEvents.DocumentOpened += handler;
+
+                // Safety: if no document opens within 2s, drop the subscription so
+                // a later unrelated DocumentOpened doesn't accidentally fire Execute.
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                dispatcher?.BeginInvoke(new Action(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(2000);
+                    try { docEvents.DocumentOpened -= handler; } catch { }
+                }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
+            catch (Exception ex) { Debug.WriteLine($"SqlPilot ArmAutoExecute: {ex.Message}"); }
+        }
+
+        private void DispatchActivateAndExecute(EnvDTE80.DTE2 dte, EnvDTE.Document doc)
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher == null) return;
+            _ = dispatcher.BeginInvoke(new Action(async () =>
+            {
+                try { doc?.Activate(); } catch { }
+
+                // Poll Query.Execute.IsAvailable — SSMS reports the document as
+                // opened before its connection is actually wired, so an immediate
+                // ExecuteCommand is a silent no-op. Wait up to 3s for availability.
+                EnvDTE.Command cmd = null;
+                try { cmd = dte.Commands.Item("Query.Execute", 0); } catch { }
+
+                for (int i = 0; i < 15; i++)
+                {
+                    bool available = false;
+                    try { available = cmd?.IsAvailable == true; } catch { }
+                    if (available) break;
+                    await System.Threading.Tasks.Task.Delay(200);
+                }
+
+                try { dte.ExecuteCommand("Query.Execute"); }
+                catch (Exception ex) { Debug.WriteLine($"SqlPilot Query.Execute: {ex.Message}"); }
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         /// <summary>
@@ -85,9 +181,17 @@ namespace SqlPilot.Package.Integration
                 var findNodeMethod = oeService.GetType().GetMethod("FindNode", BindingFlags.Public | BindingFlags.Instance);
                 if (findNodeMethod == null) goto fallback;
 
-                string serverName = oeBridge.ResolveUrnServerName(obj.ServerName);
-                string tableUrn = $"Server[@Name='{serverName}']/Database[@Name='{obj.DatabaseName}']/Table[@Name='{obj.ObjectName}' and @Schema='{obj.SchemaName}']";
-                var nodeInfo = findNodeMethod.Invoke(oeService, new object[] { tableUrn });
+                // Try each candidate server name from OE until one resolves.
+                // Handles IP-vs-hostname mismatches (connecting via a raw IP
+                // while OE stored the resolved hostname) by enumerating every
+                // OE root URN.
+                object nodeInfo = null;
+                foreach (var serverName in oeBridge.GetCandidateUrnServerNames(obj.ServerName))
+                {
+                    string candidateUrn = $"Server[@Name='{serverName}']/Database[@Name='{obj.DatabaseName}']/Table[@Name='{obj.ObjectName}' and @Schema='{obj.SchemaName}']";
+                    nodeInfo = findNodeMethod.Invoke(oeService, new object[] { candidateUrn });
+                    if (nodeInfo != null) break;
+                }
                 if (nodeInfo == null) goto fallback;
 
                 // Set DatabaseName on the node's Connection so EditTopNRows reuses
@@ -392,6 +496,26 @@ namespace SqlPilot.Package.Integration
                 uiType.GetProperty("ApplicationName")?.SetValue(uiConn, "SQL Pilot");
                 uiType.GetProperty("ServerType")?.SetValue(uiConn, SqlServerTypeGuid);
                 uiType.GetProperty("AuthenticationType")?.SetValue(uiConn, connInfo.UseIntegratedSecurity ? 0 : 1);
+
+                // SQL Server 2022+ ships with Encrypt=Mandatory by default. Without
+                // TrustServerCertificate=True, on-prem servers with self-signed certs
+                // fail with "certificate chain issued by untrusted authority" in SSMS 22.
+                // AdvancedOptions is a NameValueCollection whose entries are merged into
+                // the resulting connection string; OtherParams is appended raw. Set both
+                // so whichever path SSMS uses picks it up.
+                try
+                {
+                    var advProp = uiType.GetProperty("AdvancedOptions");
+                    var adv = advProp?.GetValue(uiConn);
+                    if (adv != null)
+                    {
+                        var indexer = adv.GetType().GetProperty("Item", new[] { typeof(string) });
+                        indexer?.SetValue(adv, "True", new object[] { "TrustServerCertificate" });
+                    }
+                    uiType.GetProperty("OtherParams")?.SetValue(uiConn, "TrustServerCertificate=True");
+                }
+                catch (Exception ex) { Debug.WriteLine($"SqlPilot set TrustServerCertificate: {ex.Message}"); }
+
                 return uiConn;
             }
             catch (Exception ex)
