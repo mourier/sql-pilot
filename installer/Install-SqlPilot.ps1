@@ -97,6 +97,12 @@ foreach ($ssms in $found) {
         Write-Host "  Copied: $($_.Name)" -ForegroundColor Gray
     }
 
+    # Strip the Mark-of-the-Web NTFS stream from every copied file. If the user
+    # downloaded the release ZIP via a browser and extracted it with Explorer,
+    # the MotW propagates to the DLLs and SSMS then refuses to load them with
+    # "An attempt was made to load an assembly from a network location...".
+    Get-ChildItem $extensionDir -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
+
     Invoke-SsmsCacheInvalidation -IdePath $ssms.IdePath -DataBase $ssms.DataBase -DataPattern $ssms.DataPattern
     Write-Host "  Invalidated SSMS caches" -ForegroundColor Gray
 }

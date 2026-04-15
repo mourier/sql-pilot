@@ -106,6 +106,20 @@ If both the WPF installer and the PowerShell scripts are unavailable for some re
 - Usually a VS Shell version mismatch — the SSMS 22 build was deployed into SSMS 18/20 or vice versa
 - Use the WPF installer or the PowerShell script: both pick the right subfolder per detected version automatically
 
+### "An attempt was made to load an assembly from a network location"
+
+SSMS refuses to load `SqlPilot.Package.dll` and the Activity Log shows `System.NotSupportedException` with that message. This is Windows' **Mark-of-the-Web** (MotW): the release ZIP was downloaded via a browser and Windows Explorer propagated the `Zone.Identifier` NTFS stream to every extracted file.
+
+Both the WPF installer and `Install-SqlPilot.ps1` strip MotW automatically starting in v1.0.0, but if you extracted the ZIP manually and copied the files, or are on an older install, run this in an **administrator PowerShell**:
+
+```powershell
+Get-ChildItem "C:\Program Files (x86)\Microsoft SQL Server Management Studio 20\Common7\IDE\Extensions\SqlPilot" -Recurse | Unblock-File
+Get-ChildItem "C:\Program Files (x86)\Microsoft SQL Server Management Studio 18\Common7\IDE\Extensions\SqlPilot" -Recurse -ErrorAction SilentlyContinue | Unblock-File
+Get-ChildItem "C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE\Extensions\SqlPilot" -Recurse -ErrorAction SilentlyContinue | Unblock-File
+```
+
+Restart SSMS after running. Alternatively: right-click the downloaded ZIP → **Properties** → tick **Unblock** → click OK, *before* extracting.
+
 ### Permission denied during install
 
 - The PowerShell script requires **administrator** privileges since it writes to Program Files

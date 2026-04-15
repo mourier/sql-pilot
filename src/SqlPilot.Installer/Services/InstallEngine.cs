@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using SqlPilot.Installer.ViewModels;
@@ -154,6 +155,7 @@ namespace SqlPilot.Installer.Services
             {
                 var dest = Path.Combine(targetDir, Path.GetFileName(src));
                 File.Copy(src, dest, overwrite: true);
+                RemoveMarkOfTheWeb(dest);
             }
 
             InvalidateCaches(row);
@@ -178,6 +180,23 @@ namespace SqlPilot.Installer.Services
             {
                 FailStep(InstallStepKind.UninstallingVersion, $"{row.Label} failed: {ex.Message}");
             }
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DeleteFile(string name);
+
+        /// <summary>
+        /// Strips the Windows Mark-of-the-Web (the <c>Zone.Identifier</c> NTFS
+        /// alternate data stream). Without this, .NET Framework refuses to load
+        /// any DLL that carries it, with the error "An attempt was made to load
+        /// an assembly from a network location..." — which happens when a user
+        /// downloads the release ZIP via a browser and extracts it with Windows
+        /// Explorer. Failure is silent because the stream may not be present.
+        /// </summary>
+        private static void RemoveMarkOfTheWeb(string filePath)
+        {
+            try { DeleteFile(filePath + ":Zone.Identifier"); } catch { }
         }
 
         /// <summary>
