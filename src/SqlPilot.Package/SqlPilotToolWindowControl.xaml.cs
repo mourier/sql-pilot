@@ -68,7 +68,7 @@ namespace SqlPilot.Package
                     // Parallelize database indexing — each SMO call creates its own connection.
                     // Cap concurrency so we don't exhaust the connection pool on servers with
                     // hundreds of databases.
-                    using (var throttle = new System.Threading.SemaphoreSlim(8))
+                    using (var throttle = new System.Threading.SemaphoreSlim(20))
                     {
                         var dbTasks = databases.Select(async dbName =>
                         {

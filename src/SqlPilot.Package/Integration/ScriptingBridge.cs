@@ -29,9 +29,36 @@ namespace SqlPilot.Package.Integration
             var connInfo = _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName);
             if (connInfo?.ConnectionString == null) return null;
             var serverConn = new ServerConnection();
-            serverConn.ConnectionString = connInfo.ConnectionString;
+            serverConn.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
             serverConn.TrustServerCertificate = true;
             return new Server(serverConn);
+        }
+
+        /// <summary>
+        /// SSMS connection strings occasionally contain keywords that the underlying
+        /// <see cref="System.Data.SqlClient.SqlConnectionStringBuilder"/> doesn't
+        /// recognise (e.g. SSMS 20 emits "multiple active result sets" with spaces,
+        /// which SqlClient rejects with <c>ArgumentException: Keyword not supported</c>
+        /// and takes the whole SMO call down with it). Parse each keyword segment
+        /// individually and drop anything the builder can't accept.
+        /// </summary>
+        private static string SanitizeConnectionString(string connStr)
+        {
+            if (string.IsNullOrEmpty(connStr)) return connStr;
+            var sb = new StringBuilder();
+            foreach (var segment in connStr.Split(';'))
+            {
+                var trimmed = segment.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+                try
+                {
+                    new System.Data.SqlClient.SqlConnectionStringBuilder().ConnectionString = trimmed;
+                    if (sb.Length > 0) sb.Append(';');
+                    sb.Append(trimmed);
+                }
+                catch { /* keyword SqlClient doesn't know — drop it */ }
+            }
+            return sb.ToString();
         }
 
         private SqlConnectionInfo GetSqlConnectionInfo(DatabaseObject obj)
@@ -288,8 +315,9 @@ namespace SqlPilot.Package.Integration
                         return null;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"SqlPilot GetModuleScript {obj.QualifiedName}: {ex.Message}");
                 return null;
             }
         }
