@@ -41,6 +41,15 @@ namespace SqlPilot.Installer.ViewModels
         [ObservableProperty]
         private double? _overallProgress;
 
+        [ObservableProperty]
+        private bool _isInstallerUpdateAvailable;
+
+        [ObservableProperty]
+        private string _latestInstallerVersion;
+
+        [ObservableProperty]
+        private string _installerUpdateUrl;
+
         public bool HasNothingDetected => DetectedVersions.Count == 0;
         public bool HasAnyDetected => DetectedVersions.Count > 0;
 
@@ -83,6 +92,51 @@ namespace SqlPilot.Installer.ViewModels
             InstallerVersionString = $"{v.Major}.{v.Minor}.{v.Build}";
 
             DetectAll();
+
+            // Check whether a newer installer has been released. Fire-and-forget —
+            // if GitHub is unreachable (air-gapped env, offline, API down) the
+            // banner just stays hidden. Marshalling to the UI thread handled by
+            // CommunityToolkit's ObservableProperty setters.
+            _ = Task.Run(() => CheckForInstallerUpdateAsync(v));
+        }
+
+        private async Task CheckForInstallerUpdateAsync(Version currentVersion)
+        {
+            try
+            {
+                using (var github = new GitHubReleaseClient())
+                {
+                    var latest = await github.GetLatestReleaseAsync().ConfigureAwait(false);
+                    if (latest?.TagName == null) return;
+
+                    // Tag format is "v1.2.0" (or "v1.2.0-beta" — treat pre-release suffix as older for safety)
+                    var tag = latest.TagName.StartsWith("v", StringComparison.OrdinalIgnoreCase)
+                        ? latest.TagName.Substring(1)
+                        : latest.TagName;
+                    var dash = tag.IndexOf('-');
+                    if (dash >= 0) tag = tag.Substring(0, dash);
+
+                    if (!Version.TryParse(tag, out var latestVer)) return;
+
+                    // Normalise to 3 parts for comparison (assembly version is 4, tag is 3).
+                    var latest3 = new Version(latestVer.Major, latestVer.Minor, latestVer.Build < 0 ? 0 : latestVer.Build);
+                    var current3 = new Version(currentVersion.Major, currentVersion.Minor, currentVersion.Build);
+
+                    if (latest3 > current3)
+                    {
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            LatestInstallerVersion = $"{latest3.Major}.{latest3.Minor}.{latest3.Build}";
+                            InstallerUpdateUrl = latest.HtmlUrl;
+                            IsInstallerUpdateAvailable = true;
+                        });
+                    }
+                }
+            }
+            catch
+            {
+                // Silent — offline, rate-limited, API changed, etc.
+            }
         }
 
         private void DetectAll()
@@ -134,6 +188,14 @@ namespace SqlPilot.Installer.ViewModels
         private void OpenRepo()
         {
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(RepoUrl) { UseShellExecute = true }); }
+            catch { /* user might not have a default browser */ }
+        }
+
+        [RelayCommand]
+        private void OpenInstallerUpdate()
+        {
+            if (string.IsNullOrEmpty(InstallerUpdateUrl)) return;
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(InstallerUpdateUrl) { UseShellExecute = true }); }
             catch { /* user might not have a default browser */ }
         }
 

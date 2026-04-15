@@ -56,6 +56,14 @@ namespace SqlPilot.Installer.Services
             }
         }
 
+        /// <summary>
+        /// Fetches the latest published release, regardless of the installer's own
+        /// version. Used for the self-update notification: if the latest release is
+        /// newer than the running installer, we show a banner pointing at it.
+        /// </summary>
+        public Task<ReleaseInfo> GetLatestReleaseAsync(CancellationToken ct = default)
+            => GetReleaseAsync(LatestReleaseUrl, ct);
+
         private async Task<ReleaseInfo> GetReleaseAsync(string url, CancellationToken ct)
         {
             var json = await _http.GetStringAsync(url).ConfigureAwait(false);

@@ -25,6 +25,7 @@
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
@@ -54,8 +55,28 @@
 
       <Rectangle Grid.Row="0" Height="1" Fill="{StaticResource HairlineBrush}" VerticalAlignment="Bottom" />
 
+      <!-- ─── Self-update banner (only when a newer installer is available) ─── -->
+      <Border Grid.Row="1" Background="#EAF3FB" Padding="24,10"
+              Visibility="{Binding IsInstallerUpdateAvailable, Converter={StaticResource BoolToVis}}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="A newer installer is available: v" FontSize="12" />
+            <TextBlock Text="{Binding LatestInstallerVersion}" FontSize="12" FontWeight="SemiBold" />
+            <TextBlock Text=" (you're on v" FontSize="12" />
+            <TextBlock Text="{Binding InstallerVersionString}" FontSize="12" />
+            <TextBlock Text=")" FontSize="12" />
+          </StackPanel>
+          <Button Grid.Column="1" Command="{Binding OpenInstallerUpdateCommand}"
+                  Content="Download latest" Padding="12,4" FontSize="12" />
+        </Grid>
+      </Border>
+
       <!-- ─── Body (one of: Selection, Progress, Done, Error) ─── -->
-      <Grid Grid.Row="1" Margin="24,16,24,16">
+      <Grid Grid.Row="2" Margin="24,16,24,16">
 
         <!-- View 1: Selection -->
         <StackPanel Visibility="{Binding IsInSelectionView, Converter={StaticResource BoolToVis}}">
@@ -184,8 +205,8 @@
       </Grid>
 
       <!-- ─── Footer (action buttons — depend on current view) ─── -->
-      <Rectangle Grid.Row="2" Height="1" Fill="{StaticResource HairlineBrush}" VerticalAlignment="Top" />
-      <Border Grid.Row="2" Padding="24,16">
+      <Rectangle Grid.Row="3" Height="1" Fill="{StaticResource HairlineBrush}" VerticalAlignment="Top" />
+      <Border Grid.Row="3" Padding="24,16">
         <Grid>
           <!-- Selection view buttons -->
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
