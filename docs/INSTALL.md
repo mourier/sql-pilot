@@ -63,6 +63,10 @@ For unattended deployment:
 
 Per-version errors don't abort the others — if SSMS 20 is locked because it's still running, the uninstaller still cleans up 18 and 22 and tells you which versions to retry.
 
+## SSMS 22 via VSIX Gallery (alternative)
+
+SSMS 22 users can also install from the [VSIX Gallery](https://www.vsixgallery.com/extension/SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b/) or [SSMS Gallery](https://ssmsgallery.azurewebsites.net/): download the `.vsix` and run it (or subscribe to the gallery feed for update notifications). **SSMS 18 and 20 must use the installer or scripts above** — the `.vsix` targets the modern shell (SSMS 21–22) only.
+
 ## Manual install (last resort)
 
 If both the WPF installer and the PowerShell scripts are unavailable for some reason, you can copy the files by hand. The release ZIP contains the exact file set under `SSMS22/` and `SSMS18-20/`.

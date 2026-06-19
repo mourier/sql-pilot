@@ -229,12 +229,21 @@ C:\Program Files (x86)\Microsoft SQL Server Management Studio {18|20}\Common7\ID
 
 ## Release Pipeline
 
-A tag push matching `v*` triggers `.github/workflows/release.yml`, which builds Modern + Legacy + the WPF installer in one `msbuild SqlPilot.sln` step and publishes **two release assets**:
+A tag push matching `v*` triggers `.github/workflows/release.yml`, which builds Modern + Legacy + the WPF installer in one `msbuild SqlPilot.sln` step and publishes **three release assets**:
 
 - **`SqlPilot-vX.Y.Z.zip`** — the payload. Contains `SSMS22/` and `SSMS18-20/` subfolders with the extension DLLs + manifests + pkgdef, plus `Install-SqlPilot.ps1`, `Uninstall-SqlPilot.ps1`, `_SsmsHelpers.ps1`, LICENSE, NOTICE, README at the ZIP root. This is the file the WPF installer downloads at runtime, and what power users extract for scripted installs.
 - **`SqlPilotInstaller-vX.Y.Z.zip`** — the friendly user-facing installer. Contains `SqlPilotInstaller.exe` + its dependency DLLs. Users download this, extract, double-click the exe, approve UAC, and the installer fetches the matching payload ZIP from GitHub itself.
+- **`SqlPilot-vX.Y.Z.vsix`** — the modern (SSMS 21–22) gallery artifact. See *Modern `.vsix` artifact* below.
 
 The installer pins to its own assembly version: it asks GitHub for `releases/tags/v{Major.Minor.Build}`, not `/releases/latest`. This keeps a `v1.0.0` installer from accidentally pulling a `v2.0.0` payload.
+
+### Modern `.vsix` artifact
+
+`release.yml` also produces `SqlPilot-vX.Y.Z.vsix` as a *purely additive* output. A `.vsix` is just an OPC ZIP of the modern extension layout, so the workflow takes a **separate copy** of the already-assembled `SSMS22/` folder (DLLs from `build/SqlPilotDlls.txt` + `pkgdef` + `extension.vsixmanifest` (v2) + `manifest.json` + `catalog.json`), drops in a generated `[Content_Types].xml`, and zips it via `System.IO.Compression`. Because it reuses the same assembled folder, payload parity with the installer is automatic. The loose-file payload ZIP is built from its own folder and stays byte-for-byte unchanged — the `.vsix` is never substituted for it.
+
+The `.vsix` is attached to the GitHub release and, for non-prerelease tags only (tags without a `-` suffix), pushed to the [VSIX Gallery](https://www.vsixgallery.com/) and [SSMS Gallery](https://ssmsgallery.azurewebsites.net/). Manage tokens come from the repo secrets `VSIXGALLERY_TOKEN` and `SSMSGALLERY_TOKEN`; both galleries key the listing off the manifest `Identity Id`, so re-publishing updates the same entry.
+
+**Version-target policy:** the modern manifest targets SSMS `[21.0,23.0)` (SSMS 21–22). Keep the upper bound *pinned* — bump it per release only after testing on the new SSMS shell. Do **not** open-end the range.
 
 ### Version substitution
 
