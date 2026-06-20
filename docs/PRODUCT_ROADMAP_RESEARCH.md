@@ -108,11 +108,31 @@ A **solo-developer SSMS add-in** that went from free to paid in 2012 at **~$30**
 
 ### Pitfalls to avoid
 
-- **Don't relicense the existing free code or take features away from it.** The backlashes that hurt projects came from *removing* freedoms: HashiCorp/Terraform BSL, Akka, ElasticSearch, and (in this repo's own history) FluentAssertions v8's switch to a paid license. Open-core *adds* paid features alongside an untouched free core — that's the trustworthy version. (This is also why the repo pins FluentAssertions < 8.0 — the same principle applies to your own users.)
+- **Don't relicense the existing free code or take features away from it.** This is the single strongest backlash trigger — see the case studies below. Open-core *adds* paid features alongside an untouched free core — that's the trustworthy version. (This is also why the repo pins FluentAssertions < 8.0 — the same principle applies to your own users.)
 - **Don't go subscription-first.** Developers resist it; perpetual-with-update-window is the indie norm and avoids the JetBrains-style revolt.
 - **Don't kill an existing free feature to make it Pro.** Quest doing this to ApexSQL's free tier generated lasting resentment. Only *new* features go behind the paywall.
 - **Don't require a phone-home license server.** Offline signature verification only; many SQL Server shops are locked down.
 - **Don't bet the roadmap on autocomplete.** It's the temptation (highest demand) but the wrong fight for a solo tool — see Tier C.
+
+### Backlash case studies — what to learn from each
+
+Six real relicensing/monetization episodes, and the one consistent pattern: **every project that retroactively relicensed previously-permissive code got forked, and the fork survived** (usually under neutral foundation governance). The one project that monetized *without* touching its core license had no fork and no backlash.
+
+| Project | Move | Result |
+|---|---|---|
+| **FluentAssertions v8** (Jan 2025) | Apache 2.0 → Xceed Community License ($129.95/dev/yr; v7.x stays Apache 2.0) | Forked into **AwesomeAssertions** (permanently Apache 2.0, drop-in, ~14.4M downloads, adopted by dotnet/runtime, dotnet-docker, vstest). No reversal. |
+| **Moq + SponsorLink** (Aug 2023) | Silently bundled an obfuscated dep that hashed the dev's git email and phoned home at build time | Severe, immediate backlash (GDPR/supply-chain alarm); removed in 4.20.2 within days; drove users to NSubstitute/FakeItEasy. |
+| **HashiCorp Terraform** (Aug 2023) | MPL 2.0 → BSL (non-compete) | Forked into **OpenTofu** (Linux Foundation, then CNCF). No reversal; HashiCorp later acquired by IBM. |
+| **Akka (JVM)** (Sep 2022) | Apache 2.0 → BSL | Forked into **Apache Pekko** (ASF top-level project). *Akka.**NET** is separate and did NOT relicense — Petabridge monetizes via a separate add-on (Phobos), the clean model.* |
+| **Elasticsearch** (Jan 2021) | Apache 2.0 → SSPL/ELv2 | Forked into **OpenSearch** (AWS → Linux Foundation). Elastic **partially reversed** by adding AGPL back in 2024, citing OpenSearch momentum. |
+| **Redis** (Mar 2024) | BSD-3 → SSPL/RSALv2 | Forked into **Valkey** (Linux Foundation; default in Fedora/Debian/Ubuntu). Redis **partially reversed** by adding AGPL in 2025. |
+
+**The lessons, distilled:**
+- **Backlash triggers:** retroactively relicensing contributed code; surprise (no consultation, slipped into a point release); covert data collection/nagware (SponsorLink); restricting an existing field of use.
+- **Well-received instead:** keep the core permissively licensed and charge for *new, separately-built* proprietary add-ons (Akka.NET/Phobos); keep a genuine free floor; make any telemetry transparent and opt-in; consult the community first.
+- **Relicensing rarely defeats a well-resourced forker** — Elasticsearch and Redis both ended up adding AGPL back anyway. SQL Pilot's plan (untouched Apache-2.0 core + a brand-new Pro add-on) sits squarely in the "no-backlash" column.
+
+> **Actionable repo note:** the CLAUDE.md FluentAssertions pin is fully corroborated. Worth adding to that note: **AwesomeAssertions** is now a mature, drop-in, permanently-Apache-2.0 fork *adopted by dotnet/runtime itself* — a stronger escape hatch than the Shouldly/plain-xUnit options currently listed, should the test suite ever outgrow FA v7's API.
 
 ---
 
