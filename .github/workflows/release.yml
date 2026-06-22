@@ -232,10 +232,11 @@ jobs:
           $issues = "https://github.com/mourier/sql-pilot/issues"
           $readme = "https://raw.githubusercontent.com/mourier/sql-pilot/main/README.md"
 
-          # VSIX Gallery (vsixgallery.com) — raw body + X-Manage-Token header.
+          # VSIX Gallery (vsixgallery.com) — multipart form-data (matches Mads's
+          # WebClient.UploadFile uploader; the devguide's --data-binary 400s).
           $vg = "https://www.vsixgallery.com/api/upload?repo=$repo&issuetracker=$issues&readmeUrl=$readme"
           Write-Host "Publishing to VSIX Gallery..."
-          curl.exe --fail --silent --show-error -X POST $vg -H "X-Manage-Token: $env:VSIXGALLERY_TOKEN" --data-binary "@$vsix"
+          curl.exe --fail --silent --show-error -X POST $vg -H "X-Manage-Token: $env:VSIXGALLERY_TOKEN" -F "file=@$vsix"
           if ($LASTEXITCODE -ne 0) { throw "VSIX Gallery publish failed with exit code $LASTEXITCODE" }
 
           # SSMS Gallery (ssmsgallery.azurewebsites.net) — multipart form per its devguide.
