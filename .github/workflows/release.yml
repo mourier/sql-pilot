@@ -165,16 +165,19 @@ jobs:
           $vsixStaging = "$artifacts/vsix-staging"
           New-Item -ItemType Directory -Path $vsixStaging -Force | Out-Null
           Copy-Item "$ssms22Dir/*" $vsixStaging -Recurse -Force
-          $contentTypes = @'
-<?xml version="1.0" encoding="utf-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="vsixmanifest" ContentType="text/xml" />
-  <Default Extension="xml" ContentType="text/xml" />
-  <Default Extension="json" ContentType="application/json" />
-  <Default Extension="dll" ContentType="application/octet-stream" />
-  <Default Extension="pkgdef" ContentType="text/plain" />
-</Types>
-'@
+          # Build the content as an indented array-join (NOT a column-0 here-string,
+          # which would break this YAML literal block). Single-quoted lines keep the
+          # XML angle brackets/quotes literal.
+          $contentTypes = @(
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '  <Default Extension="vsixmanifest" ContentType="text/xml" />'
+            '  <Default Extension="xml" ContentType="text/xml" />'
+            '  <Default Extension="json" ContentType="application/json" />'
+            '  <Default Extension="dll" ContentType="application/octet-stream" />'
+            '  <Default Extension="pkgdef" ContentType="text/plain" />'
+            '</Types>'
+          ) -join "`r`n"
           # Brackets in the filename are PowerShell wildcards — must use -LiteralPath.
           Set-Content -LiteralPath "$vsixStaging/[Content_Types].xml" -Value $contentTypes -Encoding utf8 -NoNewline
           $vsixPath = "$artifacts/SqlPilot-$tag.vsix"
