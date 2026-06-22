@@ -165,6 +165,11 @@ jobs:
           $vsixStaging = "$artifacts/vsix-staging"
           New-Item -ItemType Directory -Path $vsixStaging -Force | Out-Null
           Copy-Item "$ssms22Dir/*" $vsixStaging -Recurse -Force
+          # Drop the loose-file deployment metadata from the .vsix only. catalog.json/
+          # manifest.json make the modern SSMS 22 VSIXInstaller take a v3-catalog path
+          # that rejects the manifest ("version Invalid"); a clean OPC vsix (manifest +
+          # payload) installs. The payload ZIP above still ships them for the installer.
+          Remove-Item "$vsixStaging/catalog.json","$vsixStaging/manifest.json" -Force -ErrorAction SilentlyContinue
           # Build the content as an indented array-join (NOT a column-0 here-string,
           # which would break this YAML literal block). Single-quoted lines keep the
           # XML angle brackets/quotes literal.
