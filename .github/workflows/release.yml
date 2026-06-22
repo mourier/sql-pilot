@@ -231,9 +231,11 @@ jobs:
           $vg = "https://www.vsixgallery.com/api/upload?repo=$repo&issuetracker=$issues&readmeUrl=$readme"
           Write-Host "Publishing to VSIX Gallery..."
           curl.exe --fail --silent --show-error -X POST $vg -H "X-Manage-Token: $env:VSIXGALLERY_TOKEN" --data-binary "@$vsix"
+          if ($LASTEXITCODE -ne 0) { throw "VSIX Gallery publish failed with exit code $LASTEXITCODE" }
 
           # SSMS Gallery (ssmsgallery.azurewebsites.net) — multipart form per its devguide.
           $sg = "https://ssmsgallery.azurewebsites.net/api/upload?repo=$repo&issuetracker=$issues&readmeUrl=$readme"
           Write-Host "Publishing to SSMS Gallery..."
           curl.exe --fail --silent --show-error -X POST $sg -H "X-Manage-Token: $env:SSMSGALLERY_TOKEN" -F "file=@$vsix"
+          if ($LASTEXITCODE -ne 0) { throw "SSMS Gallery publish failed with exit code $LASTEXITCODE" }
           Write-Host "Gallery publish complete."
