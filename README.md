@@ -17,6 +17,9 @@
   <a href="https://github.com/mourier/sql-pilot/actions/workflows/ci.yml">
     <img src="https://github.com/mourier/sql-pilot/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
+  <a href="https://www.vsixgallery.com/extension/SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b/">
+    <img src="https://www.vsixgallery.com/badge/SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b.svg" alt="VSIX Gallery" />
+  </a>
   <img src="https://img.shields.io/badge/SSMS-18%20%7C%2020%20%7C%2022-1f4e79" alt="SSMS 18, 20, 22" />
   <img src="https://img.shields.io/badge/Language-C%23-239120" alt="Language: C#" />
   <img src="https://img.shields.io/badge/Platform-Windows%20x64%20%7C%20Arm64-0078D4" alt="Windows x64 and Arm64" />
@@ -90,6 +93,10 @@ SQL Pilot is a modern, from-scratch replacement. Same fast workflow, all the sam
 The installer downloads the matching release payload from GitHub itself, verifies it, and copies the extension into every selected SSMS version. Same exe handles uninstall — re-run it on a machine where SQL Pilot is already installed and the **Uninstall** button appears.
 
 > **First run will show "Windows protected your PC"** because we don't pay for an EV code-signing certificate yet. Click **More info** → **Run anyway**. The installer source is in [`src/SqlPilot.Installer/`](src/SqlPilot.Installer) — verify before running if you want.
+
+### SSMS 22 via VSIX Gallery (alternative)
+
+SSMS 22 users can also install from the [VSIX Gallery](https://www.vsixgallery.com/extension/SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b/) or [SSMS Gallery](https://ssmsgallery.azurewebsites.net/): download the `.vsix` and run it (or subscribe to the gallery feed for update notifications). **SSMS 18 and 20 must use the installer above** — the `.vsix` targets the modern shell (SSMS 21–22) only.
 
 ### Power user — scripted install
 
