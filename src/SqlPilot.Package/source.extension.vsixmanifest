@@ -5,11 +5,12 @@
     <Identity Id="SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b"
               Version="1.0.0"
               Language="en-US"
-              Publisher="SQL Pilot Contributors" />
+              Publisher="Christian Mourier" />
     <DisplayName>SQL Pilot</DisplayName>
     <Description xml:space="preserve">Quick Search Tool for SQL Server Management Studio. Rapidly find tables, views, stored procedures, and functions across all databases.</Description>
     <MoreInfo>https://github.com/mourier/sql-pilot</MoreInfo>
     <License>LICENSE</License>
+    <Icon>icon.png</Icon>
     <Tags>SQL, SSMS, Search, Database, Quick Find</Tags>
   </Metadata>
   <Installation>
