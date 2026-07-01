@@ -4,9 +4,11 @@
     <Identity Id="SqlPilot.8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b"
               Version="1.0.0"
               Language="en-US"
-              Publisher="SQL Pilot Contributors" />
+              Publisher="Christian Mourier" />
     <DisplayName>SQL Pilot</DisplayName>
     <Description xml:space="preserve">Quick Search Tool for SQL Server Management Studio</Description>
+    <License>LICENSE.txt</License>
+    <Icon>icon.png</Icon>
   </Metadata>
   <Installation>
     <InstallationTarget Version="[21.0,23.0)" Id="Microsoft.VisualStudio.Ssms">

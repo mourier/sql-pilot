@@ -170,6 +170,11 @@ jobs:
           # that rejects the manifest ("version Invalid"); a clean OPC vsix (manifest +
           # payload) installs. The payload ZIP above still ships them for the installer.
           Remove-Item "$vsixStaging/catalog.json","$vsixStaging/manifest.json" -Force -ErrorAction SilentlyContinue
+          # Icon + license for the gallery listing. extension.vsixmanifest.v2
+          # references icon.png/LICENSE.txt; both must live inside the .vsix (and
+          # need content types below). Reuse the repo logo and Apache LICENSE.
+          Copy-Item ".github/logo.png" "$vsixStaging/icon.png" -Force
+          Copy-Item "LICENSE" "$vsixStaging/LICENSE.txt" -Force
           # Build the content as an indented array-join (NOT a column-0 here-string,
           # which would break this YAML literal block). Single-quoted lines keep the
           # XML angle brackets/quotes literal.
@@ -181,6 +186,8 @@ jobs:
             '  <Default Extension="json" ContentType="application/json" />'
             '  <Default Extension="dll" ContentType="application/octet-stream" />'
             '  <Default Extension="pkgdef" ContentType="text/plain" />'
+            '  <Default Extension="png" ContentType="image/png" />'
+            '  <Default Extension="txt" ContentType="text/plain" />'
             '</Types>'
           ) -join "`r`n"
           # Brackets in the filename are PowerShell wildcards — must use -LiteralPath.

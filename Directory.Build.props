@@ -2,10 +2,10 @@
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Copyright>Copyright (c) 2026 SQL Pilot Contributors</Copyright>
+    <Copyright>Copyright (c) 2026 Christian Mourier</Copyright>
     <Company>SQL Pilot</Company>
     <Product>SQL Pilot</Product>
-    <Authors>SQL Pilot Contributors</Authors>
+    <Authors>Christian Mourier</Authors>
     <NeutralLanguage>en-US</NeutralLanguage>
   </PropertyGroup>
 </Project>
