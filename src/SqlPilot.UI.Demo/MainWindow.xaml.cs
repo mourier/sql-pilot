@@ -4,9 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using CommunityToolkit.Mvvm.Input;
 using SqlPilot.Core.Scope;
 using SqlPilot.Core.Search;
-using SqlPilot.UI.Commands;
 using SqlPilot.UI.ViewModels;
 
 namespace SqlPilot.UI.Demo
@@ -35,7 +35,7 @@ namespace SqlPilot.UI.Demo
             SearchViewModel = new SearchViewModel(_searchEngine);
             SearchPanel.DataContext = SearchViewModel;
 
-            InputBindings.Add(new KeyBinding(new RelayInputCommand(ToggleScopePanel), Key.S, ModifierKeys.Alt));
+            InputBindings.Add(new KeyBinding(new RelayCommand(ToggleScopePanel), Key.S, ModifierKeys.Alt));
 
             Loaded += async (s, e) => await RefreshIndexAsync();
         }
@@ -75,11 +75,6 @@ namespace SqlPilot.UI.Demo
                 ScopePanelContent.FocusTree();
             else
                 SearchPanel.FocusSearchBox();
-        }
-
-        private void ScopeButton_Toggled(object sender, RoutedEventArgs e)
-        {
-            ScopePanel.Visibility = ScopeButton.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void OnScopeToggled(object sender, ScopeToggleEventArgs e)

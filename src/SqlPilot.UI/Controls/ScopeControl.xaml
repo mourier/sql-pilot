@@ -23,30 +23,27 @@
               Background="Transparent"
               ScrollViewer.HorizontalScrollBarVisibility="Auto">
       <TreeView.Resources>
-        <!-- The label is a sibling of the checkbox, so each one needs an explicit
-             automation name and a LabeledBy link — otherwise a screen reader just
-             announces "checkbox, checked" with no idea which server or database. -->
+        <!-- The label is a sibling of the checkbox, so each checkbox needs its own
+             automation name — otherwise a screen reader announces "checkbox, checked"
+             with no idea which server or database. No HelpText: WPF only falls back to
+             ToolTip when HelpText is empty, and the ToolTip is the more useful string. -->
         <HierarchicalDataTemplate DataType="{x:Type vm:ServerScopeNode}" ItemsSource="{Binding Databases}">
           <StackPanel Orientation="Horizontal">
             <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
                       IsThreeState="False"
                       VerticalAlignment="Center"
-                      AutomationProperties.Name="{Binding Name}"
-                      AutomationProperties.LabeledBy="{Binding ElementName=ServerLabel}"
-                      AutomationProperties.HelpText="Include this server and its databases in search"
-                      ToolTip="{Binding Name}" />
-            <TextBlock x:Name="ServerLabel" Text="{Binding Name}" Margin="4,0,0,0" FontWeight="SemiBold" />
+                      AutomationProperties.Name="{Binding Name}" />
+            <TextBlock Text="{Binding Name}" Margin="4,0,0,0" FontWeight="SemiBold" />
           </StackPanel>
         </HierarchicalDataTemplate>
         <DataTemplate DataType="{x:Type vm:DatabaseScopeNode}">
           <StackPanel Orientation="Horizontal">
+            <!-- ToolTip carries the server so two same-named databases stay tellable apart. -->
             <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay}"
                       VerticalAlignment="Center"
                       AutomationProperties.Name="{Binding Name}"
-                      AutomationProperties.LabeledBy="{Binding ElementName=DatabaseLabel}"
-                      AutomationProperties.HelpText="Include this database in search"
-                      ToolTip="{Binding ServerName, StringFormat='{}{0} — include this database in search'}" />
-            <TextBlock x:Name="DatabaseLabel" Text="{Binding Name}" Margin="4,0,0,0" />
+                      ToolTip="{Binding ServerName}" />
+            <TextBlock Text="{Binding Name}" Margin="4,0,0,0" />
           </StackPanel>
         </DataTemplate>
       </TreeView.Resources>

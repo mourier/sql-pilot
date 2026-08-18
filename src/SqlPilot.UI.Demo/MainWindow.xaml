@@ -7,6 +7,10 @@
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E">
 
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+  </Window.Resources>
+
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -25,9 +29,7 @@
                    Foreground="#9D9D9D" VerticalAlignment="Center" Text="Not indexed." />
         <ToggleButton x:Name="ScopeButton" Grid.Column="1" Padding="6,2"
                       AutomationProperties.Name="Scope"
-                      AutomationProperties.HelpText="Choose which servers and databases to search"
-                      ToolTip="Scope — choose which servers and databases to search (Alt+S)"
-                      Checked="ScopeButton_Toggled" Unchecked="ScopeButton_Toggled">
+                      ToolTip="Scope — choose which servers and databases to search (Alt+S)">
           <TextBlock Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                      VerticalAlignment="Center" />
         </ToggleButton>
@@ -35,7 +37,8 @@
     </Border>
 
     <!-- Scope tree -->
-    <Border x:Name="ScopePanel" Grid.Row="1" Visibility="Collapsed"
+    <Border x:Name="ScopePanel" Grid.Row="1"
+            Visibility="{Binding IsChecked, ElementName=ScopeButton, Converter={StaticResource BoolToVis}}"
             Padding="4,2" Background="#252526">
       <controls:ScopeControl x:Name="ScopePanelContent" Foreground="#D4D4D4" />
     </Border>

@@ -5,10 +5,10 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.VisualStudio.Shell;
 using SqlPilot.Core.Database;
 using SqlPilot.Package.Services;
-using SqlPilot.UI.Commands;
 using SqlPilot.Smo;
 using SqlPilot.UI.Controls;
 using SqlPilot.UI.ViewModels;
@@ -43,7 +43,7 @@ namespace SqlPilot.Package
 
             // Alt+S toggles the scope panel. Added in code rather than XAML because
             // InputBindings don't inherit DataContext, so a bound Command wouldn't resolve.
-            InputBindings.Add(new KeyBinding(new RelayInputCommand(ToggleScopePanel), Key.S, ModifierKeys.Alt));
+            InputBindings.Add(new KeyBinding(new RelayCommand(ToggleScopePanel), Key.S, ModifierKeys.Alt));
         }
 
         /// <summary>Alt+S — drives the toggle button so button, panel and state stay in sync.</summary>
@@ -129,11 +129,6 @@ namespace SqlPilot.Package
 
                 await Task.WhenAll(dbTasks);
             }
-        }
-
-        private void ScopeButton_Toggled(object sender, RoutedEventArgs e)
-        {
-            ScopePanel.Visibility = ScopeButton.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void OnScopeToggled(object sender, ScopeToggleEventArgs e)

@@ -61,9 +61,7 @@
         <ToggleButton x:Name="ScopeButton" Grid.Column="1" Padding="6,2"
                       Margin="0,0,4,0"
                       AutomationProperties.Name="Scope"
-                      AutomationProperties.HelpText="Choose which servers and databases to search"
-                      ToolTip="Scope — choose which servers and databases to search (Alt+S)"
-                      Checked="ScopeButton_Toggled" Unchecked="ScopeButton_Toggled">
+                      ToolTip="Scope — choose which servers and databases to search (Alt+S)">
           <!-- Segoe MDL2 "Filter" glyph, matching ObjectTypeToIconConverter's icon set.
                Icon-only, so the automation name above is what a screen reader reads. -->
           <TextBlock Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="12"
@@ -75,7 +73,8 @@
     </Border>
 
     <!-- Scope tree (hidden until the Scope button is toggled on) -->
-    <Border x:Name="ScopePanel" Grid.Row="2" Visibility="Collapsed"
+    <Border x:Name="ScopePanel" Grid.Row="2"
+            Visibility="{Binding IsChecked, ElementName=ScopeButton, Converter={StaticResource BoolToVis}}"
             Padding="4,2" BorderThickness="0,0,0,1"
             BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
             Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
