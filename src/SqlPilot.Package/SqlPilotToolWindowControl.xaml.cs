@@ -4,9 +4,11 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.VisualStudio.Shell;
 using SqlPilot.Core.Database;
 using SqlPilot.Package.Services;
+using SqlPilot.UI.Commands;
 using SqlPilot.Smo;
 using SqlPilot.UI.Controls;
 using SqlPilot.UI.ViewModels;
@@ -38,6 +40,21 @@ namespace SqlPilot.Package
             ScopePanel.DataContext = ScopeViewModel;
 
             SearchPanel.ActionRequested += OnActionRequested;
+
+            // Alt+S toggles the scope panel. Added in code rather than XAML because
+            // InputBindings don't inherit DataContext, so a bound Command wouldn't resolve.
+            InputBindings.Add(new KeyBinding(new RelayInputCommand(ToggleScopePanel), Key.S, ModifierKeys.Alt));
+        }
+
+        /// <summary>Alt+S — drives the toggle button so button, panel and state stay in sync.</summary>
+        private void ToggleScopePanel()
+        {
+            ScopeButton.IsChecked = ScopeButton.IsChecked != true;
+
+            if (ScopeButton.IsChecked == true)
+                ScopePanelContent.FocusTree();
+            else
+                SearchPanel.FocusSearchBox();
         }
 
         public async Task RefreshIndexAsync()

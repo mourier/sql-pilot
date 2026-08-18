@@ -54,7 +54,7 @@ SQL Pilot is a modern, from-scratch replacement. Same fast workflow, all the sam
 ## Features
 
 - **Fuzzy search** across every database on every connected server. Indexes tables, views, stored procedures, scalar and table-valued functions, and synonyms.
-- **Search scope** — the *Scope* button opens a checkbox tree of your connected servers and their databases. Uncheck what you don't care about and it drops out of search *and* stops being indexed; exclusions persist across SSMS restarts. Everything is in scope until you say otherwise, and new databases on an in-scope server are picked up automatically.
+- **Search scope** — the filter button (funnel icon, `Alt+S`) opens a checkbox tree of your connected servers and their databases. Uncheck what you don't care about and it drops out of search *and* stops being indexed; exclusions persist across SSMS restarts. Everything is in scope until you say otherwise, and new databases on an in-scope server are picked up automatically.
 - **Keyboard-driven** — type to filter, arrows to navigate, Enter to act, Right for the secondary action, Space for the context menu. No mouse needed.
 - **Type-aware context actions** — Select Top N, Edit Top N (the real editable grid, not a SELECT script), Design Table, Script Create, Modify, Execute. Tables get *Edit Data*. Procedures and functions get *Execute*. Views get *Modify View*.
 - **Favorites** — pin objects you use constantly, persisted across SSMS restarts.
@@ -71,6 +71,7 @@ SQL Pilot is a modern, from-scratch replacement. Same fast workflow, all the sam
 | Key | Action |
 |---|---|
 | `Ctrl+D` | Open SQL Pilot from anywhere in SSMS |
+| `Alt+S` | Toggle the Scope panel — pick which servers and databases to search |
 | Type letters | Fuzzy-match across all indexed objects |
 | `↓` / `↑` | Navigate results |
 | `Enter` | Default action — *Select Data* for tables/views, *Modify* for procs/functions |

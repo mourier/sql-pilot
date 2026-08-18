@@ -3,8 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
 using SqlPilot.Core.Scope;
 using SqlPilot.Core.Search;
+using SqlPilot.UI.Commands;
 using SqlPilot.UI.ViewModels;
 
 namespace SqlPilot.UI.Demo
@@ -33,6 +35,8 @@ namespace SqlPilot.UI.Demo
             SearchViewModel = new SearchViewModel(_searchEngine);
             SearchPanel.DataContext = SearchViewModel;
 
+            InputBindings.Add(new KeyBinding(new RelayInputCommand(ToggleScopePanel), Key.S, ModifierKeys.Alt));
+
             Loaded += async (s, e) => await RefreshIndexAsync();
         }
 
@@ -60,6 +64,17 @@ namespace SqlPilot.UI.Demo
 
             foreach (var databaseName in databases.Where(db => _scopeStore.IsDatabaseIncluded(serverName, db)))
                 await _searchEngine.RefreshIndexAsync(serverName, databaseName, _provider);
+        }
+
+        /// <summary>Alt+S — drives the toggle button so button, panel and state stay in sync.</summary>
+        private void ToggleScopePanel()
+        {
+            ScopeButton.IsChecked = ScopeButton.IsChecked != true;
+
+            if (ScopeButton.IsChecked == true)
+                ScopePanelContent.FocusTree();
+            else
+                SearchPanel.FocusSearchBox();
         }
 
         private void ScopeButton_Toggled(object sender, RoutedEventArgs e)

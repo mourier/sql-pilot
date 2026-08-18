@@ -31,7 +31,7 @@
                   <Setter.Value>
                     <VisualBrush AlignmentX="Left" AlignmentY="Center" Stretch="None">
                       <VisualBrush.Visual>
-                        <Label Content="Search objects... (Ctrl+Shift+D)"
+                        <Label Content="Search objects... (Ctrl+D)"
                                Foreground="Gray" FontSize="13" Padding="6,4" />
                       </VisualBrush.Visual>
                     </VisualBrush>

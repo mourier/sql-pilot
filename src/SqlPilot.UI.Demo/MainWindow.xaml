@@ -23,9 +23,14 @@
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="IndexStatus" Grid.Column="0" FontSize="11"
                    Foreground="#9D9D9D" VerticalAlignment="Center" Text="Not indexed." />
-        <ToggleButton x:Name="ScopeButton" Grid.Column="1" Content="Scope" Padding="8,2"
-                      FontSize="11"
-                      Checked="ScopeButton_Toggled" Unchecked="ScopeButton_Toggled" />
+        <ToggleButton x:Name="ScopeButton" Grid.Column="1" Padding="6,2"
+                      AutomationProperties.Name="Scope"
+                      AutomationProperties.HelpText="Choose which servers and databases to search"
+                      ToolTip="Scope — choose which servers and databases to search (Alt+S)"
+                      Checked="ScopeButton_Toggled" Unchecked="ScopeButton_Toggled">
+          <TextBlock Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                     VerticalAlignment="Center" />
+        </ToggleButton>
       </Grid>
     </Border>
 
