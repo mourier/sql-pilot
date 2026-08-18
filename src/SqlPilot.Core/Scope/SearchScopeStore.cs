@@ -11,20 +11,22 @@ namespace SqlPilot.Core.Scope
     ///
     /// Only exclusions are persisted — never inclusions — so a fresh install (or a
     /// deleted scope file) behaves exactly like the pre-scope build: everything is
-    /// in scope. Server exclusion is kept separate from per-database exclusion so
-    /// re-including a server doesn't silently resurrect databases the user had
-    /// unchecked individually.
+    /// in scope.
+    ///
+    /// Server exclusion is stored separately from per-database exclusion, so
+    /// SetServerIncluded(true) leaves individual database exclusions standing. That
+    /// is the storage rule only — ScopeViewModel deliberately clears a server's
+    /// database exclusions when the user re-checks the server itself, because at the
+    /// UI level "check the server" means "give me the whole server back".
     /// </summary>
     public sealed class SearchScopeStore : ISearchScopeStore
     {
         private const string ServerPrefix = "S";
         private const string DatabasePrefix = "D";
-        private const char PartSeparator = '|';
 
         private readonly string _filePath;
 
-        private readonly ConcurrentDictionary<string, byte> _excludedServers =
-            new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, byte> _excludedServers = NewNameSet();
 
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _excludedDatabases =
             new ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>(StringComparer.OrdinalIgnoreCase);
@@ -74,10 +76,7 @@ namespace SqlPilot.Core.Scope
             }
             else
             {
-                var databases = _excludedDatabases.GetOrAdd(
-                    serverName,
-                    _ => new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase));
-                changed = databases.TryAdd(databaseName, 0);
+                changed = _excludedDatabases.GetOrAdd(serverName, _ => NewNameSet()).TryAdd(databaseName, 0);
             }
 
             if (changed) OnScopeChanged();
@@ -93,17 +92,20 @@ namespace SqlPilot.Core.Scope
             return Array.Empty<string>();
         }
 
+        // Composite keys are "S|<server>" and "D|<server>|<database>", built with
+        // LineStore.Join so a '|' inside a name is escaped rather than mistaken for a
+        // part separator.
         public void Save()
         {
             var settings = new Dictionary<string, string>();
 
             foreach (var server in _excludedServers.Keys)
-                settings[MakeKey(ServerPrefix, server)] = "1";
+                settings[LineStore.Join(ServerPrefix, server)] = "1";
 
             foreach (var kvp in _excludedDatabases)
             {
                 foreach (var database in kvp.Value.Keys)
-                    settings[MakeKey(DatabasePrefix, kvp.Key, database)] = "1";
+                    settings[LineStore.Join(DatabasePrefix, kvp.Key, database)] = "1";
             }
 
             LineStore.SaveSettings(_filePath, settings);
@@ -116,17 +118,14 @@ namespace SqlPilot.Core.Scope
 
             foreach (var key in LineStore.LoadSettings(_filePath).Keys)
             {
-                var parts = SplitKey(key);
+                var parts = LineStore.Split(key);
                 if (parts.Length == 2 && string.Equals(parts[0], ServerPrefix, StringComparison.OrdinalIgnoreCase))
                 {
                     _excludedServers.TryAdd(parts[1], 0);
                 }
                 else if (parts.Length == 3 && string.Equals(parts[0], DatabasePrefix, StringComparison.OrdinalIgnoreCase))
                 {
-                    var databases = _excludedDatabases.GetOrAdd(
-                        parts[1],
-                        _ => new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase));
-                    databases.TryAdd(parts[2], 0);
+                    _excludedDatabases.GetOrAdd(parts[1], _ => NewNameSet()).TryAdd(parts[2], 0);
                 }
             }
 
@@ -135,41 +134,7 @@ namespace SqlPilot.Core.Scope
 
         private void OnScopeChanged() => ScopeChanged?.Invoke(this, EventArgs.Empty);
 
-        // Composite keys are "S|<server>" and "D|<server>|<database>". Server and
-        // database names are escaped before being joined so a '|' inside a name can't
-        // be mistaken for a part separator — LineStore escapes the finished key again
-        // on the way to disk, which is harmless because the two passes are symmetric.
-        private static string MakeKey(params string[] parts)
-            => string.Join(PartSeparator.ToString(), parts.Select(EscapePart));
-
-        private static string[] SplitKey(string key)
-        {
-            var parts = new List<string>();
-            var current = new System.Text.StringBuilder();
-
-            for (int i = 0; i < key.Length; i++)
-            {
-                char c = key[i];
-                if (c == '\\' && i + 1 < key.Length)
-                {
-                    current.Append(key[++i]);
-                }
-                else if (c == PartSeparator)
-                {
-                    parts.Add(current.ToString());
-                    current.Clear();
-                }
-                else
-                {
-                    current.Append(c);
-                }
-            }
-
-            parts.Add(current.ToString());
-            return parts.ToArray();
-        }
-
-        private static string EscapePart(string value)
-            => (value ?? "").Replace("\\", "\\\\").Replace("|", "\\|");
+        private static ConcurrentDictionary<string, byte> NewNameSet()
+            => new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
     }
 }

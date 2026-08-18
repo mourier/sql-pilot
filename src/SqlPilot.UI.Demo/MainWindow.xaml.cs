@@ -45,17 +45,21 @@ namespace SqlPilot.UI.Demo
             ScopeViewModel.PruneServers(MockDatabaseObjectProvider.Servers);
 
             foreach (var serverName in MockDatabaseObjectProvider.Servers)
-            {
-                var databases = await _provider.GetDatabaseNamesAsync(serverName);
-                ScopeViewModel.MergeServer(serverName, databases);
-
-                foreach (var databaseName in databases.Where(db => _scopeStore.IsDatabaseIncluded(serverName, db)))
-                    await _searchEngine.RefreshIndexAsync(serverName, databaseName, _provider);
-            }
+                await IndexServerAsync(serverName);
 
             ScopeViewModel.UpdateSummary();
             IndexStatus.Text = ScopeViewModel.DescribeIndexStatus(_searchEngine.GetIndexedObjectCount());
             SearchViewModel.Rerun();
+        }
+
+        /// <summary>Merge a server into the scope tree and index whatever is in scope.</summary>
+        private async Task IndexServerAsync(string serverName)
+        {
+            var databases = await _provider.GetDatabaseNamesAsync(serverName);
+            ScopeViewModel.MergeServer(serverName, databases);
+
+            foreach (var databaseName in databases.Where(db => _scopeStore.IsDatabaseIncluded(serverName, db)))
+                await _searchEngine.RefreshIndexAsync(serverName, databaseName, _provider);
         }
 
         private void ScopeButton_Toggled(object sender, RoutedEventArgs e)
@@ -73,15 +77,9 @@ namespace SqlPilot.UI.Demo
             if (e.DatabaseName == null)
             {
                 if (e.Included)
-                {
-                    var databases = await _provider.GetDatabaseNamesAsync(e.ServerName);
-                    foreach (var databaseName in databases.Where(db => _scopeStore.IsDatabaseIncluded(e.ServerName, db)))
-                        await _searchEngine.RefreshIndexAsync(e.ServerName, databaseName, _provider);
-                }
+                    await IndexServerAsync(e.ServerName);
                 else
-                {
                     _searchEngine.ClearServer(e.ServerName);
-                }
             }
             else
             {

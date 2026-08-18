@@ -122,11 +122,27 @@ namespace SqlPilot.Core.Tests
         }
 
         [Fact]
-        public async Task GetIndexedDatabaseCount_CountsIndexedBuckets()
+        public async Task RefreshIndexAsync_SkipsAnExcludedDatabase()
         {
+            _scope.SetDatabaseIncluded("server-a", "Sales", false);
+
             await IndexAllAsync();
 
-            _engine.GetIndexedDatabaseCount().Should().Be(3);
+            _scope.SetDatabaseIncluded("server-a", "Sales", true);
+            var results = await _engine.SearchAsync("Customer", new SearchFilter());
+            results.Should().NotContain(r => r.Object.ServerName == "server-a" && r.Object.DatabaseName == "Sales");
+        }
+
+        [Fact]
+        public async Task RefreshIndexAsync_SkipsEveryDatabaseOfAnExcludedServer()
+        {
+            _scope.SetServerIncluded("server-a", false);
+
+            await IndexAllAsync();
+
+            _scope.SetServerIncluded("server-a", true);
+            var results = await _engine.SearchAsync("Customer", new SearchFilter());
+            results.Should().OnlyContain(r => r.Object.ServerName == "server-b");
         }
 
         private async Task IndexAllAsync()

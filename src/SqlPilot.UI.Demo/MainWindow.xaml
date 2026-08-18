@@ -2,7 +2,6 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:SqlPilot.UI.Controls;assembly=SqlPilot.UI"
-        xmlns:vm="clr-namespace:SqlPilot.UI.ViewModels;assembly=SqlPilot.UI"
         Title="SQL Pilot - UI Demo"
         Width="500" Height="600"
         WindowStartupLocation="CenterScreen"
@@ -33,44 +32,7 @@
     <!-- Scope tree -->
     <Border x:Name="ScopePanel" Grid.Row="1" Visibility="Collapsed"
             Padding="4,2" Background="#252526">
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <TextBlock Grid.Row="0" FontSize="11" Margin="2,0,0,2"
-                   Foreground="#9D9D9D" Text="{Binding SummaryText}" />
-
-        <TreeView Grid.Row="1" x:Name="ScopeTree"
-                  ItemsSource="{Binding Servers}"
-                  MaxHeight="240"
-                  BorderThickness="0"
-                  Background="Transparent"
-                  Foreground="#D4D4D4">
-          <TreeView.Resources>
-            <HierarchicalDataTemplate DataType="{x:Type vm:ServerScopeNode}" ItemsSource="{Binding Databases}">
-              <StackPanel Orientation="Horizontal">
-                <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                          IsThreeState="False"
-                          VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Name}" Margin="4,0,0,0" FontWeight="SemiBold" Foreground="#D4D4D4" />
-              </StackPanel>
-            </HierarchicalDataTemplate>
-            <DataTemplate DataType="{x:Type vm:DatabaseScopeNode}">
-              <StackPanel Orientation="Horizontal">
-                <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay}" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Name}" Margin="4,0,0,0" Foreground="#D4D4D4" />
-              </StackPanel>
-            </DataTemplate>
-          </TreeView.Resources>
-          <TreeView.ItemContainerStyle>
-            <Style TargetType="TreeViewItem">
-              <Setter Property="IsExpanded" Value="True" />
-            </Style>
-          </TreeView.ItemContainerStyle>
-        </TreeView>
-      </Grid>
+      <controls:ScopeControl x:Name="ScopePanelContent" Foreground="#D4D4D4" />
     </Border>
 
     <controls:SearchControl x:Name="SearchPanel" Grid.Row="2" />

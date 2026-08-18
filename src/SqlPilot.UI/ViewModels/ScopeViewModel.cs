@@ -71,6 +71,18 @@ namespace SqlPilot.UI.ViewModels
             server.RaiseIsCheckedChanged();
         }
 
+        /// <summary>
+        /// The databases already known for a server, or empty if it isn't in the tree
+        /// yet. Lets callers re-index without paying another metadata round trip.
+        /// </summary>
+        public IReadOnlyList<string> GetDatabaseNames(string serverName)
+        {
+            var server = Servers.FirstOrDefault(s => string.Equals(s.Name, serverName, StringComparison.OrdinalIgnoreCase));
+            return server == null
+                ? Array.Empty<string>()
+                : server.Databases.Select(d => d.Name).ToList();
+        }
+
         /// <summary>Drop servers that are no longer connected.</summary>
         public void PruneServers(IEnumerable<string> connectedServers)
         {

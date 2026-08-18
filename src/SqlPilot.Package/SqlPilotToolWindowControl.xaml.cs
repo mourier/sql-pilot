@@ -59,29 +59,7 @@ namespace SqlPilot.Package
                 ScopeViewModel.PruneServers(servers);
 
                 foreach (var serverName in servers)
-                {
-                    IndexStatus.Text = $"Connecting to {serverName}...";
-
-                    var connInfo = _package.ObjectExplorerBridge.GetConnectionInfo(serverName);
-                    var smoProvider = new SmoDatabaseObjectProvider(connInfo);
-
-                    IndexStatus.Text = $"Loading databases from {serverName}...";
-                    var databases = await smoProvider.GetDatabaseNamesAsync(serverName);
-
-                    // Enumerated even for out-of-scope servers: it's a single cheap
-                    // metadata query, and it's what keeps the scope tree (and the
-                    // "x of y database(s)" status) honest. The expensive part —
-                    // crawling each database's objects — is what scope skips.
-                    ScopeViewModel.MergeServer(serverName, databases);
-
-                    var inScope = databases
-                        .Where(db => _package.ScopeStore.IsDatabaseIncluded(serverName, db))
-                        .ToList();
-
-                    if (inScope.Count == 0) continue;
-
-                    await IndexDatabasesAsync(serverName, smoProvider, inScope);
-                }
+                    await IndexServerAsync(serverName);
 
                 ScopeViewModel.UpdateSummary();
                 IndexStatus.Text = ScopeViewModel.DescribeIndexStatus(_package.SearchEngine.GetIndexedObjectCount());
@@ -160,14 +138,14 @@ namespace SqlPilot.Package
                 if (e.DatabaseName == null)
                 {
                     if (e.Included)
-                        await SpotIndexServerAsync(e.ServerName);
+                        await IndexServerAsync(e.ServerName, ScopeViewModel.GetDatabaseNames(e.ServerName));
                     else
                         _package.SearchEngine.ClearServer(e.ServerName);
                 }
                 else
                 {
                     if (e.Included)
-                        await SpotIndexDatabaseAsync(e.ServerName, e.DatabaseName);
+                        await IndexDatabasesAsync(e.ServerName, CreateProvider(e.ServerName), new[] { e.DatabaseName });
                     else
                         _package.SearchEngine.ClearDatabase(e.ServerName, e.DatabaseName);
                 }
@@ -186,25 +164,37 @@ namespace SqlPilot.Package
             }
         }
 
-        private async Task SpotIndexDatabaseAsync(string serverName, string databaseName)
-        {
-            IndexStatus.Text = $"Indexing {databaseName}...";
-
-            var connInfo = _package.ObjectExplorerBridge.GetConnectionInfo(serverName);
-            var provider = new SmoDatabaseObjectProvider(connInfo);
-
-            await Task.Run(() => _package.SearchEngine.RefreshIndexAsync(serverName, databaseName, provider));
-        }
-
-        private async Task SpotIndexServerAsync(string serverName)
+        /// <summary>
+        /// Index every in-scope database on one server. <paramref name="databases"/> lets a
+        /// caller that already knows the list (a scope toggle re-reads it off the tree) skip
+        /// the connect + metadata round trip.
+        /// </summary>
+        private async Task IndexServerAsync(string serverName, IReadOnlyList<string> databases = null)
         {
             IndexStatus.Text = $"Connecting to {serverName}...";
+            var provider = CreateProvider(serverName);
 
-            var connInfo = _package.ObjectExplorerBridge.GetConnectionInfo(serverName);
-            var provider = new SmoDatabaseObjectProvider(connInfo);
+            if (databases == null)
+            {
+                // A server that's out of scope and already in the tree doesn't need
+                // re-enumerating — that's the connect the user excluded it to avoid.
+                var known = ScopeViewModel.GetDatabaseNames(serverName);
+                if (known.Count > 0 && !_package.ScopeStore.IsServerIncluded(serverName))
+                {
+                    databases = known;
+                }
+                else
+                {
+                    IndexStatus.Text = $"Loading databases from {serverName}...";
+                    databases = await provider.GetDatabaseNamesAsync(serverName);
 
-            var databases = await provider.GetDatabaseNamesAsync(serverName);
-            ScopeViewModel.MergeServer(serverName, databases);
+                    // Enumerated even for out-of-scope servers we haven't seen yet: one
+                    // cheap metadata query is what keeps the scope tree and the
+                    // "x of y database(s)" status honest. The expensive part — crawling
+                    // each database's objects — is what scope skips.
+                    ScopeViewModel.MergeServer(serverName, databases);
+                }
+            }
 
             var inScope = databases
                 .Where(db => _package.ScopeStore.IsDatabaseIncluded(serverName, db))
@@ -214,10 +204,13 @@ namespace SqlPilot.Package
                 await IndexDatabasesAsync(serverName, provider, inScope);
         }
 
+        private SmoDatabaseObjectProvider CreateProvider(string serverName)
+            => new SmoDatabaseObjectProvider(_package.ObjectExplorerBridge.GetConnectionInfo(serverName));
+
         private void SetBusy(bool busy)
         {
             RefreshButton.IsEnabled = !busy;
-            ScopeTree.IsEnabled = !busy;
+            ScopePanelContent.SetTreeEnabled(!busy);
         }
 
         private void OnActionRequested(DatabaseObject obj, string action)

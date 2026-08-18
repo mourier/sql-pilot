@@ -1,0 +1,47 @@
+<UserControl x:Class="SqlPilot.UI.Controls.ScopeControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:SqlPilot.UI.ViewModels">
+
+  <!-- Deliberately theme-neutral: colours are inherited from the host so SSMS
+       (SystemColors) and the demo (DarkTheme.xaml) each style it their own way.
+       DataContext is a ScopeViewModel. -->
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0" FontSize="11" Margin="2,0,0,2" Opacity="0.75"
+               Text="{Binding SummaryText}" />
+
+    <TreeView Grid.Row="1" x:Name="ScopeTree"
+              ItemsSource="{Binding Servers}"
+              MaxHeight="220"
+              BorderThickness="0"
+              Background="Transparent"
+              ScrollViewer.HorizontalScrollBarVisibility="Auto">
+      <TreeView.Resources>
+        <HierarchicalDataTemplate DataType="{x:Type vm:ServerScopeNode}" ItemsSource="{Binding Databases}">
+          <StackPanel Orientation="Horizontal">
+            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                      IsThreeState="False"
+                      VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Name}" Margin="4,0,0,0" FontWeight="SemiBold" />
+          </StackPanel>
+        </HierarchicalDataTemplate>
+        <DataTemplate DataType="{x:Type vm:DatabaseScopeNode}">
+          <StackPanel Orientation="Horizontal">
+            <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Name}" Margin="4,0,0,0" />
+          </StackPanel>
+        </DataTemplate>
+      </TreeView.Resources>
+      <TreeView.ItemContainerStyle>
+        <Style TargetType="TreeViewItem">
+          <Setter Property="IsExpanded" Value="True" />
+        </Style>
+      </TreeView.ItemContainerStyle>
+    </TreeView>
+  </Grid>
+</UserControl>

@@ -83,7 +83,7 @@ namespace SqlPilot.UI.Demo
             string serverName, string databaseName, CancellationToken cancellationToken = default)
         {
             var objects = CuratedData.TryGetValue(databaseName, out var curated)
-                ? curated.Select(o => Retarget(o, serverName)).ToList()
+                ? curated
                 : Generate(serverName, databaseName);
 
             return Task.FromResult<IReadOnlyList<DatabaseObject>>(objects);
@@ -116,20 +116,15 @@ namespace SqlPilot.UI.Demo
                 .ToList();
         }
 
-        private static DatabaseObject Retarget(DatabaseObject obj, string serverName) => new DatabaseObject
-        {
-            ServerName = serverName,
-            DatabaseName = obj.DatabaseName,
-            SchemaName = obj.SchemaName,
-            ObjectName = obj.ObjectName,
-            ObjectType = obj.ObjectType
-        };
+        // Both curated databases live on CuratedServer only, so their objects can
+        // carry the right server name from the start.
+        private const string CuratedServer = @"localhost\SQL2019";
 
         private static DatabaseObject MakeObj(string db, string schema, string name, DatabaseObjectType type)
         {
             return new DatabaseObject
             {
-                ServerName = "localhost",
+                ServerName = CuratedServer,
                 DatabaseName = db,
                 SchemaName = schema,
                 ObjectName = name,

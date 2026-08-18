@@ -26,8 +26,6 @@ namespace SqlPilot.Core.Search
 
         int GetIndexedObjectCount();
 
-        int GetIndexedDatabaseCount();
-
         int GetIndexedServerCount();
     }
 }

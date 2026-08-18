@@ -71,13 +71,40 @@ namespace SqlPilot.Core.Persistence
         }
 
         /// <summary>
-        /// Position of the first separator that isn't part of an escape sequence.
-        /// Keys may legitimately contain an escaped separator (scope.txt composes
-        /// "D|server|database" keys), so a plain IndexOf would split mid-key.
+        /// Join values into a single separated string, escaping any separator they
+        /// contain. Callers that compose composite keys (see SearchScopeStore) share
+        /// this rather than rolling their own copy of the escape scheme.
         /// </summary>
-        private static int IndexOfUnescaped(string line)
+        public static string Join(params string[] parts) => string.Join(Sep.ToString(), parts.Select(Esc));
+
+        /// <summary>Inverse of <see cref="Join"/>: split on unescaped separators and unescape each part.</summary>
+        public static string[] Split(string value)
         {
-            for (int i = 0; i < line.Length; i++)
+            var parts = new List<string>();
+            int start = 0;
+
+            while (true)
+            {
+                int idx = IndexOfUnescaped(value, start);
+                if (idx < 0) break;
+
+                parts.Add(Unesc(value.Substring(start, idx - start)));
+                start = idx + 1;
+            }
+
+            parts.Add(Unesc(value.Substring(start)));
+            return parts.ToArray();
+        }
+
+        /// <summary>
+        /// Position of the first separator at or after <paramref name="startIndex"/> that
+        /// isn't part of an escape sequence. Keys may legitimately contain an escaped
+        /// separator (scope.txt composes "D|server|database" keys), so a plain IndexOf
+        /// would split mid-key.
+        /// </summary>
+        private static int IndexOfUnescaped(string line, int startIndex = 0)
+        {
+            for (int i = startIndex; i < line.Length; i++)
             {
                 if (line[i] == '\\') i++;          // skip the escaped character
                 else if (line[i] == Sep) return i;

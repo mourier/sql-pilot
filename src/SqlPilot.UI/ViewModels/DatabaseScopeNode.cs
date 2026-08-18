@@ -8,6 +8,7 @@ namespace SqlPilot.UI.ViewModels
     public partial class DatabaseScopeNode : ObservableObject
     {
         private readonly ServerScopeNode _server;
+        private bool _isSyncing;
 
         [ObservableProperty]
         private bool _isIncluded = true;
@@ -24,21 +25,19 @@ namespace SqlPilot.UI.ViewModels
         public string ServerName => _server.Name;
 
         /// <summary>
-        /// Set while the tree is being synced from the store, so programmatic
-        /// updates don't loop back into the store as if the user had clicked.
+        /// Push a state that came from the store, without looping back into it as if
+        /// the user had clicked the checkbox.
         /// </summary>
-        internal bool IsSyncing { get; set; }
-
         internal void SetIncludedSilently(bool included)
         {
-            IsSyncing = true;
+            _isSyncing = true;
             try { IsIncluded = included; }
-            finally { IsSyncing = false; }
+            finally { _isSyncing = false; }
         }
 
         partial void OnIsIncludedChanged(bool value)
         {
-            if (IsSyncing) return;
+            if (_isSyncing) return;
             _server.OnDatabaseToggled(this, value);
         }
     }

@@ -48,19 +48,16 @@ namespace SqlPilot.Core.Search
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Skip entire buckets that are out of scope or don't match the filter
-                if (_scope != null || filter.ServerName != null || filter.DatabaseName != null)
+                if (TryParseKey(kvp.Key, out var keyServer, out var keyDatabase))
                 {
-                    if (TryParseKey(kvp.Key, out var keyServer, out var keyDatabase))
-                    {
-                        if (filter.ServerName != null && !string.Equals(keyServer, filter.ServerName, StringComparison.OrdinalIgnoreCase))
-                            continue;
-                        if (filter.DatabaseName != null && !string.Equals(keyDatabase, filter.DatabaseName, StringComparison.OrdinalIgnoreCase))
-                            continue;
-                        // Scope excludes the database (or its whole server). The bucket
-                        // stays indexed so re-including it doesn't need a re-crawl.
-                        if (_scope != null && !_scope.IsDatabaseIncluded(keyServer, keyDatabase))
-                            continue;
-                    }
+                    if (filter.ServerName != null && !string.Equals(keyServer, filter.ServerName, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (filter.DatabaseName != null && !string.Equals(keyDatabase, filter.DatabaseName, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    // Hosts also drop excluded buckets from the index, so this is the
+                    // backstop for a bucket indexed before the exclusion was made.
+                    if (_scope != null && !_scope.IsDatabaseIncluded(keyServer, keyDatabase))
+                        continue;
                 }
 
                 foreach (var obj in kvp.Value)
@@ -132,6 +129,10 @@ namespace SqlPilot.Core.Search
             IDatabaseObjectProvider provider,
             CancellationToken cancellationToken = default)
         {
+            // The engine owns the scope store, so the guard lives here rather than in
+            // every caller's indexing loop.
+            if (_scope != null && !_scope.IsDatabaseIncluded(serverName, databaseName)) return;
+
             var objects = await provider.GetObjectsAsync(serverName, databaseName, cancellationToken);
             _index[MakeKey(serverName, databaseName)] = objects.ToList();
         }
@@ -164,8 +165,6 @@ namespace SqlPilot.Core.Search
                 count += kvp.Value.Count;
             return count;
         }
-
-        public int GetIndexedDatabaseCount() => _index.Count;
 
         public int GetIndexedServerCount()
         {
