@@ -62,12 +62,27 @@ namespace SqlPilot.Core.Persistence
 
             foreach (var line in File.ReadAllLines(path))
             {
-                var idx = line.IndexOf(Sep);
+                var idx = IndexOfUnescaped(line);
                 if (idx > 0)
                     result[Unesc(line.Substring(0, idx))] = Unesc(line.Substring(idx + 1));
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Position of the first separator that isn't part of an escape sequence.
+        /// Keys may legitimately contain an escaped separator (scope.txt composes
+        /// "D|server|database" keys), so a plain IndexOf would split mid-key.
+        /// </summary>
+        private static int IndexOfUnescaped(string line)
+        {
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (line[i] == '\\') i++;          // skip the escaped character
+                else if (line[i] == Sep) return i;
+            }
+            return -1;
         }
 
         private static string Esc(string s) => s?.Replace("\\", "\\\\").Replace("|", "\\|") ?? "";

@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using SqlPilot.Core.Favorites;
 using SqlPilot.Core.Recents;
+using SqlPilot.Core.Scope;
 using SqlPilot.Core.Search;
 using SqlPilot.Core.Settings;
 using SqlPilot.Package.Commands;
@@ -30,6 +31,7 @@ namespace SqlPilot.Package
         internal SearchEngine SearchEngine { get; private set; }
         internal FavoritesStore FavoritesStore { get; private set; }
         internal RecentObjectsStore RecentsStore { get; private set; }
+        internal SearchScopeStore ScopeStore { get; private set; }
         internal FileSettingsProvider SettingsProvider { get; private set; }
         internal ObjectExplorerBridge ObjectExplorerBridge { get; private set; }
         internal ScriptingBridge ScriptingBridge { get; private set; }
@@ -53,7 +55,13 @@ namespace SqlPilot.Package
             RecentsStore.Load();
 
             SettingsProvider = new FileSettingsProvider(Path.Combine(DataDirectory, "settings.json"));
-            SearchEngine = new SearchEngine(FavoritesStore, RecentsStore);
+
+            // Search scope is dynamic state, not a user preference — it lives in its
+            // own file rather than SqlPilotSettings / the Tools>Options page.
+            ScopeStore = new SearchScopeStore(Path.Combine(DataDirectory, "scope.txt"));
+            ScopeStore.Load();
+
+            SearchEngine = new SearchEngine(FavoritesStore, RecentsStore, ScopeStore);
 
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 

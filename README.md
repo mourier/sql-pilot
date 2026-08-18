@@ -54,6 +54,7 @@ SQL Pilot is a modern, from-scratch replacement. Same fast workflow, all the sam
 ## Features
 
 - **Fuzzy search** across every database on every connected server. Indexes tables, views, stored procedures, scalar and table-valued functions, and synonyms.
+- **Search scope** — the *Scope* button opens a checkbox tree of your connected servers and their databases. Uncheck what you don't care about and it drops out of search *and* stops being indexed; exclusions persist across SSMS restarts. Everything is in scope until you say otherwise, and new databases on an in-scope server are picked up automatically.
 - **Keyboard-driven** — type to filter, arrows to navigate, Enter to act, Right for the secondary action, Space for the context menu. No mouse needed.
 - **Type-aware context actions** — Select Top N, Edit Top N (the real editable grid, not a SELECT script), Design Table, Script Create, Modify, Execute. Tables get *Edit Data*. Procedures and functions get *Execute*. Views get *Modify View*.
 - **Favorites** — pin objects you use constantly, persisted across SSMS restarts.
@@ -173,7 +174,7 @@ Single AnyCPU build. Works on Windows x64 and Arm64. No native dependencies.
 
 ```
 src/
-├── SqlPilot.Core/             # Search engine, models, favorites, recents (no SSMS deps)
+├── SqlPilot.Core/             # Search engine, models, favorites, recents, scope (no SSMS deps)
 ├── SqlPilot.Smo/              # SMO database object provider (SSMS 22 SMO 18.x)
 ├── SqlPilot.Smo.Legacy/       # Same source, references SSMS 18 SMO 16.x
 ├── SqlPilot.UI/               # WPF controls, view models, themes

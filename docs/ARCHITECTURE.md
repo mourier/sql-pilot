@@ -36,7 +36,7 @@ SMO is loaded from SSMS at runtime (not bundled). Set `<Private>false</Private>`
 ```
 SqlPilot/
 ├── src/
-│   ├── SqlPilot.Core/           # Search engine, models, favorites, recents, settings
+│   ├── SqlPilot.Core/           # Search engine, models, favorites, recents, scope, settings
 │   │                            # Target: netstandard2.0 + net472 (no SSMS deps)
 │   ├── SqlPilot.Smo/            # SMO database object provider (SSMS 22 SMO 18.x)
 │   │                            # Target: net472
@@ -76,6 +76,32 @@ Core projects shared by both extension builds: `SqlPilot.Core`, `SqlPilot.UI`. T
 ### Legacy projects must be in SqlPilot.sln
 
 `release.yml` builds via `msbuild SqlPilot.sln`, which only compiles projects listed in the solution. `SqlPilot.Package.Legacy` and `SqlPilot.Smo.Legacy` must be explicitly added — they were initially missing and the first test release shipped an empty `SSMS18-20/` subfolder as a result. `build/Deploy-Dev.ps1` sidesteps this by invoking individual `.csproj` files by path, so local dev wouldn't notice the omission.
+
+## Persisted User State
+
+Everything the extension remembers lives in `%AppData%\SqlPilot\`, written through `SqlPilot.Core/Persistence/LineStore.cs` (a hand-rolled `|`-separated line format — see the `System.Text.Json` prohibition in CLAUDE.md):
+
+| File | Written by | Contents |
+|------|-----------|----------|
+| `favorites.json` | `FavoritesStore` | Pinned objects (line format despite the extension) |
+| `recents.json` | `RecentObjectsStore` | Recently accessed objects |
+| `settings.json` | `FileSettingsProvider` | `SqlPilotSettings` — user preferences, Tools > Options |
+| `scope.txt` | `SearchScopeStore` | Servers/databases excluded from search and indexing |
+
+### Search Scope
+
+Scope is **dynamic state, not a user preference** — it deliberately stays out of `SqlPilotSettings` and the Tools > Options page, because it's keyed to whatever servers happen to be connected.
+
+The model is **default-include**: `scope.txt` holds only exclusions, one per line, as composite keys — `S|<server>` for an excluded server and `D|<server>|<database>` for an excluded database. Nothing is ever persisted for an included item, so a missing or empty `scope.txt` behaves exactly like the pre-scope build, and a database that appears on an in-scope server later is indexed without asking.
+
+Both layers enforce it:
+
+- **Index time** — `SqlPilotToolWindowControl.RefreshIndexAsync()` filters each server's database list through `ISearchScopeStore.IsDatabaseIncluded` before building index tasks. Database *names* are still enumerated for out-of-scope servers (one cheap metadata query) so the scope tree and the "x of y database(s)" status stay accurate; the expensive per-database object crawl is what gets skipped.
+- **Search time** — `SearchEngine` takes an optional `ISearchScopeStore` as its third constructor parameter and skips whole index buckets whose `server/database` key is out of scope. Buckets are dropped from the index on exclusion (`ClearDatabase` / `ClearServer`) and spot-indexed on re-inclusion, so toggling a checkbox never triggers a full re-index.
+
+The UI side is `ScopeViewModel` + `ServerScopeNode` (tri-state `bool? IsChecked`) + `DatabaseScopeNode` in `SqlPilot.UI/ViewModels`. The tree is merged — not rebuilt — on each refresh: existing check states survive, vanished databases are dropped, new ones arrive checked. `SqlPilot.UI.Demo` wires the same view models to `MockDatabaseObjectProvider` (three fake servers) so the tree can be exercised without SSMS.
+
+**LineStore gotcha**: `LoadSettings` splits each line at the first *unescaped* separator. A plain `IndexOf('|')` would split a `D|server|database` key in the middle of its own escaped separator — that's why `IndexOfUnescaped` exists.
 
 ## SSMS Integration Points
 

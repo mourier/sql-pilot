@@ -20,9 +20,13 @@ namespace SqlPilot.Core.Search
 
         void ClearServer(string serverName);
 
+        void ClearDatabase(string serverName, string databaseName);
+
         void ClearAll();
 
         int GetIndexedObjectCount();
+
+        int GetIndexedDatabaseCount();
 
         int GetIndexedServerCount();
     }
