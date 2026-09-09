@@ -347,8 +347,56 @@ Note: SSMS 22 uses `-log` (dash), not `/log` (slash). SSMS 18 accepts both.
 
 For user-visible messages, use the SQL Pilot status bar (`IndexStatus.Text`).
 
+## SSMS 22: the package registers but never loads
+
+**Open problem.** On SSMS 22 (22.4.11612.150) the extension deploys and registers correctly
+but the package is never loaded, so Ctrl+D does nothing and there is no SQL Pilot tool
+window at all. SSMS 18/20 are unaffected. Verified against a real install, not inferred.
+
+What *is* confirmed working, so don't re-debug these:
+
+- `Deploy-Dev.ps1 -Version 22` copies the right files to the right place.
+- The shell discovers the extension — it appears in
+  `%LocalAppData%\Microsoft\SSMS\<ver>\Extensions\ExtensionMetadata2.0.mpack`.
+- The pkgdef **does** merge into `privateregistry.bin`: `Packages\{8f4a3b2e-…}`,
+  `ToolWindows\{c7d8e9f0-…}`, `InstalledProducts\SQL Pilot` and
+  `AutoLoadPackages\{adfc4e64-…}` are all present.
+- The `InstallationTarget Version="[21.0,23.0)"` range in `extension.vsixmanifest.v2` is
+  **not** the problem. It looks suspicious — SSMS 22's own bundled extensions target
+  `Microsoft.VisualStudio.Community [18.0, 19.0)`, i.e. the VS shell version, not the SSMS
+  product version — but registration succeeds with the shipped range, so leave it alone.
+
+What is left: `ActivityLog.xml` contains **zero** SqlPilot entries, so the shell never even
+attempts the load. The prime suspect is the autoload UI context —
+`[ProvideAutoLoad(UIContextGuids80.NoSolution, …)]` in `SqlPilotPackage.cs` — never
+activating in the SSMS 22 shell. Because `SqlPilotCommandSet.vsct` is compiled by neither
+csproj (no `VSCTCompile` item, no `Menus`/`ctmenu` in the pkgdef), the Ctrl+D global hotkey
+registered during package init is the *only* entry point, so a package that doesn't
+autoload is completely unreachable. Any fix has to make the package load, not just register.
+
+Diagnostics that actually work here:
+
+```powershell
+# Force a pkgdef re-merge without launching the UI (needs elevation)
+Start-Process 'C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE\SSMS.exe' `
+    -ArgumentList '/updateconfiguration' -Wait
+
+# Is the package registered? (SSMS must be closed -- the hive is locked while it runs.)
+# Registry key/value names are ASCII in the hive; string values are UTF-16.
+$hive = "$env:LOCALAPPDATA\Microsoft\SSMS\22.0_31545408\privateregistry.bin"
+$asc = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($hive))
+([regex]::Matches($asc, '8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b', 'IgnoreCase')).Count
+```
+
+`Deploy-Dev.ps1 -Version 22` also never copies `icon.png` / `LICENSE.txt`, which
+`extension.vsixmanifest.v2` references (`release.yml` does copy them, from
+`.github/logo.png` and `LICENSE`). Adding them by hand changes nothing, so it isn't the
+load failure — but the dev deploy and the release payload differ, which is worth knowing
+before blaming one of them.
+
 ## Things We Tried That Don't Work
 
+- **`Process.Modules` as a "did the extension load?" check** — managed assemblies loaded by an SSMS package don't reliably show up there, so it reports "not loaded" for an extension that is demonstrably running. Drive the actual UI instead: send Ctrl+D and look for the `SQL Pilot` pane via UI Automation.
 - **DTE commands** for Edit Top N Rows: `Query.EditTopNRows`, `ObjectExplorer.EditTopNRows`, etc. — none exist in SSMS
 - **`DesignTableOrView(DocumentType.OpenTable)`** — fails at `GetDsRef` on all three SSMS versions. Use `OpenTableHelperClass.EditTopNRows` instead
 - **ScheduleSqlScriptAsOneStep** — opens the SQL Agent Job Schedule dialog, not a query

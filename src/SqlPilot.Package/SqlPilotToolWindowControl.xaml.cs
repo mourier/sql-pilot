@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.VisualStudio.Shell;
 using SqlPilot.Core.Database;
@@ -129,6 +130,13 @@ namespace SqlPilot.Package
 
                 await Task.WhenAll(dbTasks);
             }
+
+            // The progress updates above are queued, not awaited, so the last one can
+            // still be pending here and would land on top of the final status the
+            // caller sets next. Draining the queue below their priority guarantees
+            // they have all run. Most visible on a scope re-check, where the one
+            // database finishes fast enough that the stale text always won.
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
         }
 
         private void OnScopeToggled(object sender, ScopeToggleEventArgs e)
