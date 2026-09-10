@@ -37,7 +37,7 @@ namespace SqlPilot.UI.ViewModels
         /// </summary>
         public void MergeServer(string serverName, IReadOnlyList<string> databaseNames)
         {
-            var server = Servers.FirstOrDefault(s => string.Equals(s.Name, serverName, StringComparison.OrdinalIgnoreCase));
+            var server = FindServer(serverName);
             if (server == null)
             {
                 server = new ServerScopeNode(this, serverName, _scope.IsServerIncluded(serverName));
@@ -50,24 +50,20 @@ namespace SqlPilot.UI.ViewModels
 
             server.RemoveDatabasesExcept(databaseNames);
 
-            var excluded = new HashSet<string>(_scope.GetExcludedDatabases(serverName), StringComparer.OrdinalIgnoreCase);
+            var known = server.Databases.ToDictionary(d => d.Name, StringComparer.OrdinalIgnoreCase);
             foreach (var databaseName in databaseNames)
             {
-                // An excluded server shows all its databases unchecked; their own
-                // exclusions stay in the store and come back if it is re-included
-                // through a Refresh rather than the checkbox.
-                bool included = server.IsServerIncluded && !excluded.Contains(databaseName);
+                // The store already folds the server's own state in, so an excluded
+                // server shows all its databases unchecked while their individual
+                // exclusions stay put, ready for a Refresh after it is re-included.
+                bool included = _scope.IsDatabaseIncluded(serverName, databaseName);
 
-                var existing = server.Databases.FirstOrDefault(
-                    d => string.Equals(d.Name, databaseName, StringComparison.OrdinalIgnoreCase));
-
-                if (existing == null)
-                    server.AddDatabase(databaseName, included);
-                else
+                if (known.TryGetValue(databaseName, out var existing))
                     existing.SetIncludedSilently(included);
+                else
+                    server.AddDatabase(databaseName, included);
             }
 
-            SortDatabases(server);
             server.RaiseIsCheckedChanged();
         }
 
@@ -76,12 +72,11 @@ namespace SqlPilot.UI.ViewModels
         /// yet. Lets callers re-index without paying another metadata round trip.
         /// </summary>
         public IReadOnlyList<string> GetDatabaseNames(string serverName)
-        {
-            var server = Servers.FirstOrDefault(s => string.Equals(s.Name, serverName, StringComparison.OrdinalIgnoreCase));
-            return server == null
-                ? Array.Empty<string>()
-                : server.Databases.Select(d => d.Name).ToList();
-        }
+            => FindServer(serverName)?.Databases.Select(d => d.Name).ToList()
+               ?? (IReadOnlyList<string>)Array.Empty<string>();
+
+        private ServerScopeNode FindServer(string serverName)
+            => Servers.FirstOrDefault(s => string.Equals(s.Name, serverName, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>Drop servers that are no longer connected.</summary>
         public void PruneServers(IEnumerable<string> connectedServers)
@@ -108,20 +103,12 @@ namespace SqlPilot.UI.ViewModels
         /// </summary>
         public string DescribeIndexStatus(int objectCount)
         {
-            int includedDatabases = IncludedDatabaseCount;
-            int totalDatabases = TotalDatabaseCount;
-            int includedServers = IncludedServerCount;
-            int totalServers = Servers.Count;
+            string Part(int included, int total, string noun)
+                => included == total ? $"{total} {noun}(s)" : $"{included} of {total} {noun}(s)";
 
-            string databasePart = includedDatabases == totalDatabases
-                ? $"{totalDatabases} database(s)"
-                : $"{includedDatabases} of {totalDatabases} database(s)";
-
-            string serverPart = includedServers == totalServers
-                ? $"{totalServers} server(s)"
-                : $"{includedServers} of {totalServers} server(s)";
-
-            return $"Indexed {objectCount:N0} objects in {databasePart} from {serverPart}.";
+            return $"Indexed {objectCount:N0} objects in " +
+                   $"{Part(IncludedDatabaseCount, TotalDatabaseCount, "database")} from " +
+                   $"{Part(IncludedServerCount, Servers.Count, "server")}.";
         }
 
         public void UpdateSummary()
@@ -129,11 +116,12 @@ namespace SqlPilot.UI.ViewModels
             int included = IncludedDatabaseCount;
             int total = TotalDatabaseCount;
 
-            SummaryText = total == 0
-                ? "No databases"
-                : included == total
-                    ? $"All {total} database(s) in scope"
-                    : $"{included} of {total} database(s) in scope";
+            if (total == 0)
+                SummaryText = "No databases";
+            else if (included == total)
+                SummaryText = $"All {total} database(s) in scope";
+            else
+                SummaryText = $"{included} of {total} database(s) in scope";
         }
 
         internal void OnDatabaseToggled(ServerScopeNode server, DatabaseScopeNode database, bool included)
@@ -181,15 +169,6 @@ namespace SqlPilot.UI.ViewModels
             ScopeToggled?.Invoke(this, new ScopeToggleEventArgs(server.Name, null, included));
         }
 
-        private static void SortDatabases(ServerScopeNode server)
-        {
-            var sorted = server.Databases.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ToList();
-            for (int i = 0; i < sorted.Count; i++)
-            {
-                int current = server.Databases.IndexOf(sorted[i]);
-                if (current != i) server.Databases.Move(current, i);
-            }
-        }
     }
 
     /// <summary>

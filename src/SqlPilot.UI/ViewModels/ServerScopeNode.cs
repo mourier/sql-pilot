@@ -58,11 +58,19 @@ namespace SqlPilot.UI.ViewModels
             }
         }
 
-        internal DatabaseScopeNode AddDatabase(string name, bool isIncluded)
+        /// <summary>
+        /// Inserts at the sorted position. The collection is only ever added to here
+        /// and removed from below — both order-preserving — so it stays sorted without
+        /// a re-sort pass over a live-bound collection after every refresh.
+        /// </summary>
+        internal void AddDatabase(string name, bool isIncluded)
         {
-            var node = new DatabaseScopeNode(this, name, isIncluded);
-            Databases.Add(node);
-            return node;
+            int i = 0;
+            while (i < Databases.Count
+                   && StringComparer.OrdinalIgnoreCase.Compare(Databases[i].Name, name) < 0)
+                i++;
+
+            Databases.Insert(i, new DatabaseScopeNode(this, name, isIncluded));
         }
 
         internal void RemoveDatabasesExcept(IEnumerable<string> keep)

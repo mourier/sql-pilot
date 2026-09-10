@@ -47,8 +47,10 @@ namespace SqlPilot.Core.Search
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Skip entire buckets that are out of scope or don't match the filter
-                if (TryParseKey(kvp.Key, out var keyServer, out var keyDatabase))
+                // Skip entire buckets that are out of scope or don't match the filter.
+                // Parsing the key allocates, so only do it when something will read it.
+                if ((filter.ServerName != null || filter.DatabaseName != null || _scope != null)
+                    && TryParseKey(kvp.Key, out var keyServer, out var keyDatabase))
                 {
                     if (filter.ServerName != null && !string.Equals(keyServer, filter.ServerName, StringComparison.OrdinalIgnoreCase))
                         continue;

@@ -29,17 +29,19 @@ namespace SqlPilot.Core.Persistence
 
             foreach (var line in File.ReadAllLines(path))
             {
-                var parts = line.Split(Sep);
+                // Split, not line.Split(Sep): SaveObjects escapes separators inside a
+                // name, so a raw split would cut an object called "a|b" in half.
+                var parts = Split(line);
                 if (parts.Length < 5) continue;
 
                 if (int.TryParse(parts[4], out var typeInt))
                 {
                     results.Add(new DatabaseObject
                     {
-                        ServerName = Unesc(parts[0]),
-                        DatabaseName = Unesc(parts[1]),
-                        SchemaName = Unesc(parts[2]),
-                        ObjectName = Unesc(parts[3]),
+                        ServerName = parts[0],
+                        DatabaseName = parts[1],
+                        SchemaName = parts[2],
+                        ObjectName = parts[3],
                         ObjectType = (DatabaseObjectType)typeInt
                     });
                 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using FluentAssertions;
+using SqlPilot.Core.Database;
 using SqlPilot.Core.Persistence;
 using Xunit;
 
@@ -46,6 +47,26 @@ namespace SqlPilot.Core.Tests
             LineStore.SaveSettings(_tempFile, new Dictionary<string, string> { ["Key"] = "a|b|c" });
 
             LineStore.LoadSettings(_tempFile)["Key"].Should().Be("a|b|c");
+        }
+
+        [Fact]
+        public void SaveAndLoadObjects_RoundTripsNamesContainingTheSeparator()
+        {
+            var original = new DatabaseObject
+            {
+                ServerName = @"SQL\INSTANCE",
+                DatabaseName = "Sales",
+                SchemaName = "dbo",
+                ObjectName = "Weird|Name",
+                ObjectType = DatabaseObjectType.View
+            };
+
+            LineStore.SaveObjects(_tempFile, new[] { original });
+
+            var loaded = LineStore.LoadObjects(_tempFile).Should().ContainSingle().Subject;
+            loaded.ServerName.Should().Be(@"SQL\INSTANCE");
+            loaded.ObjectName.Should().Be("Weird|Name");
+            loaded.ObjectType.Should().Be(DatabaseObjectType.View);
         }
 
         public void Dispose()

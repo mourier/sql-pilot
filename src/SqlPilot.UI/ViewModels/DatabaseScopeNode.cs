@@ -5,12 +5,9 @@ namespace SqlPilot.UI.ViewModels
     /// <summary>
     /// One database checkbox under a <see cref="ServerScopeNode"/>.
     /// </summary>
-    public partial class DatabaseScopeNode : ObservableObject
+    public class DatabaseScopeNode : ObservableObject
     {
         private readonly ServerScopeNode _server;
-        private bool _isSyncing;
-
-        [ObservableProperty]
         private bool _isIncluded = true;
 
         internal DatabaseScopeNode(ServerScopeNode server, string name, bool isIncluded)
@@ -25,20 +22,31 @@ namespace SqlPilot.UI.ViewModels
         public string ServerName => _server.Name;
 
         /// <summary>
+        /// Written by the checkbox binding, so a change here means the user clicked.
+        /// Hand-rolled rather than [ObservableProperty] so that
+        /// <see cref="SetIncludedSilently"/> can bypass that meaning.
+        /// </summary>
+        public bool IsIncluded
+        {
+            get => _isIncluded;
+            set
+            {
+                if (_isIncluded == value) return;
+                _isIncluded = value;
+                OnPropertyChanged();
+                _server.OnDatabaseToggled(this, value);
+            }
+        }
+
+        /// <summary>
         /// Push a state that came from the store, without looping back into it as if
         /// the user had clicked the checkbox.
         /// </summary>
         internal void SetIncludedSilently(bool included)
         {
-            _isSyncing = true;
-            try { IsIncluded = included; }
-            finally { _isSyncing = false; }
-        }
-
-        partial void OnIsIncludedChanged(bool value)
-        {
-            if (_isSyncing) return;
-            _server.OnDatabaseToggled(this, value);
+            if (_isIncluded == included) return;
+            _isIncluded = included;
+            OnPropertyChanged(nameof(IsIncluded));
         }
     }
 }

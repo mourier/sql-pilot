@@ -62,7 +62,9 @@ namespace SqlPilot.UI.Demo
             var databases = await _provider.GetDatabaseNamesAsync(serverName);
             ScopeViewModel.MergeServer(serverName, databases);
 
-            foreach (var databaseName in databases.Where(db => _scopeStore.IsDatabaseIncluded(serverName, db)))
+            // No scope filter here on purpose: the engine holds the same store and
+            // skips out-of-scope databases itself, and the demo exists to prove that.
+            foreach (var databaseName in databases)
                 await _searchEngine.RefreshIndexAsync(serverName, databaseName, _provider);
         }
 

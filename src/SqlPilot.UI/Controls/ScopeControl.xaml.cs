@@ -23,16 +23,11 @@ namespace SqlPilot.UI.Controls
         /// </summary>
         public void FocusTree()
         {
-            // Nothing to focus into, and no reason to pay for a layout pass.
-            if (ScopeTree.Items.Count == 0)
-            {
-                ScopeTree.Focus();
-                return;
-            }
-
             // The panel goes Collapsed -> Visible in the same handler, so containers
-            // don't exist yet; force the layout the focus call depends on.
-            ScopeTree.UpdateLayout();
+            // don't exist yet; force the layout the focus call depends on. An empty
+            // tree has nothing to lay out, and falls through to focusing itself.
+            if (ScopeTree.Items.Count > 0)
+                ScopeTree.UpdateLayout();
 
             if (ScopeTree.ItemContainerGenerator.ContainerFromIndex(0) is TreeViewItem first)
                 first.Focus();

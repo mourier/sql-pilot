@@ -5,7 +5,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.VisualStudio.Shell;
 using SqlPilot.Core.Database;
@@ -116,11 +115,12 @@ namespace SqlPilot.Package
                     {
                         await Task.Run(() => _package.SearchEngine.RefreshIndexAsync(serverName, dbName, provider));
                         int done = System.Threading.Interlocked.Increment(ref completedDbs);
-                        // Fire-and-forget status update — no need to await UI thread hop
-                        _ = Dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            IndexStatus.Text = $"Indexing {serverName} ({done}/{databases.Count}) — {dbName}";
-                        }));
+                        // Assigned, not posted to the dispatcher: this method is entered
+                        // from the UI thread and nothing here configures the awaits away
+                        // from it, so we are already on it. Posting instead would queue an
+                        // update that could run after the caller writes the final status
+                        // and leave "Indexing ..." on screen for good.
+                        IndexStatus.Text = $"Indexing {serverName} ({done}/{databases.Count}) — {dbName}";
                     }
                     finally
                     {
@@ -130,13 +130,6 @@ namespace SqlPilot.Package
 
                 await Task.WhenAll(dbTasks);
             }
-
-            // The progress updates above are queued, not awaited, so the last one can
-            // still be pending here and would land on top of the final status the
-            // caller sets next. Draining the queue below their priority guarantees
-            // they have all run. Most visible on a scope re-check, where the one
-            // database finishes fast enough that the stale text always won.
-            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
         }
 
         private void OnScopeToggled(object sender, ScopeToggleEventArgs e)
