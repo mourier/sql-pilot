@@ -53,7 +53,8 @@ SqlPilot/
 │   └── SqlPilot.Installer/      # Standalone WPF one-click installer (downloads from GitHub Releases)
 │                                # Target: net472 + WPF
 ├── tests/
-│   └── SqlPilot.Core.Tests/     # xUnit tests for core logic
+│   ├── SqlPilot.Core.Tests/     # xUnit tests for core logic
+│   └── SqlPilot.Installer.Tests/# xUnit tests for the installer's release-JSON parsing
 ├── spike/                       # Phase 0 spike (SSMS 22, VSSDK 17.x)
 ├── spike-legacy/                # Phase 0 spike (SSMS 18/20, VSSDK 15.x)
 ├── lib/Ssms18/                  # Compile-time refs against SSMS 18 SMO/SqlWorkbench DLLs

@@ -16,6 +16,14 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
   </ItemGroup>
 
+  <!-- The GitHub release JSON parsing is internal but worth testing directly:
+       a silent parsing failure there means the installer downloads nothing. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SqlPilot.Installer.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <!-- HttpClient lives in System.Net.Http on net472 — needs an explicit framework reference -->
   <ItemGroup>
     <Reference Include="System.Net.Http" />

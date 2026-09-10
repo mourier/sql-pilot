@@ -174,30 +174,75 @@ namespace SqlPilot.Installer.Services
 
         /// <summary>
         /// Walks the "assets" array in the release JSON and pulls out each entry's
-        /// name, size, and browser_download_url. Regex-based — fragile by design,
-        /// but the GitHub API shape is stable enough that this is acceptable for
-        /// the small set of fields we need.
+        /// name, size, and browser_download_url.
         /// </summary>
-        private static List<ReleaseAsset> ExtractAssets(string json)
+        internal static List<ReleaseAsset> ExtractAssets(string json)
         {
             var assets = new List<ReleaseAsset>();
-            // Find each {...} object inside the "assets":[...] array
-            var assetsArrayMatch = Regex.Match(json, "\"assets\"\\s*:\\s*\\[(.*?)\\]", RegexOptions.Singleline);
-            if (!assetsArrayMatch.Success) return assets;
-
-            var arrayBody = assetsArrayMatch.Groups[1].Value;
-            // Each asset object — match braces non-greedy
-            foreach (Match obj in Regex.Matches(arrayBody, "\\{(?:[^{}]|(?<o>\\{)|(?<-o>\\}))*\\}", RegexOptions.Singleline))
+            foreach (var obj in EnumerateArrayObjects(json, "assets"))
             {
-                var name = ExtractJsonValue(obj.Value, "name");
-                var url = ExtractJsonValue(obj.Value, "browser_download_url");
-                var size = ExtractJsonLong(obj.Value, "size") ?? 0;
+                var name = ExtractJsonValue(obj, "name");
+                var url = ExtractJsonValue(obj, "browser_download_url");
+                var size = ExtractJsonLong(obj, "size") ?? 0;
                 if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(url))
                 {
                     assets.Add(new ReleaseAsset { Name = name, BrowserDownloadUrl = url, Size = size });
                 }
             }
             return assets;
+        }
+
+        /// <summary>
+        /// Yields each top-level object of the named JSON array, tracking depth and
+        /// skipping over string literals so that punctuation inside a string can't be
+        /// mistaken for structure.
+        /// </summary>
+        /// <remarks>
+        /// This has to scan rather than match: a regex ending the array at the first
+        /// "]" is wrong, and not theoretically so. GitHub reports the uploader of an
+        /// Actions-built release as "github-actions[bot]", and that bracket truncated
+        /// the array mid-object, so every release looked like it had no assets at all
+        /// and the installer refused to install anything.
+        /// </remarks>
+        private static IEnumerable<string> EnumerateArrayObjects(string json, string key)
+        {
+            var arrayStart = Regex.Match(json, $"\"{Regex.Escape(key)}\"\\s*:\\s*\\[");
+            if (!arrayStart.Success) yield break;
+
+            int depth = 0;
+            int objectStart = -1;
+            bool inString = false;
+            bool escaped = false;
+
+            for (int i = arrayStart.Index + arrayStart.Length; i < json.Length; i++)
+            {
+                char c = json[i];
+
+                if (inString)
+                {
+                    if (escaped) escaped = false;
+                    else if (c == '\\') escaped = true;
+                    else if (c == '"') inString = false;
+                    continue;
+                }
+
+                switch (c)
+                {
+                    case '"':
+                        inString = true;
+                        break;
+                    case '{':
+                        if (depth++ == 0) objectStart = i;
+                        break;
+                    case '}':
+                        if (--depth == 0) yield return json.Substring(objectStart, i - objectStart + 1);
+                        break;
+                    case ']':
+                        // Only a "]" outside every object closes the array itself.
+                        if (depth == 0) yield break;
+                        break;
+                }
+            }
         }
     }
 

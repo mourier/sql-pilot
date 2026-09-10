@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlPilot.Package.Legacy", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlPilot.Installer", "src\SqlPilot.Installer\SqlPilot.Installer.csproj", "{5DE3DAB8-FC8F-462F-9369-A32A54D5E4F6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlPilot.Installer.Tests", "tests\SqlPilot.Installer.Tests\SqlPilot.Installer.Tests.csproj", "{277D16A8-40F7-4E2D-A953-62C4734295C4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -143,6 +145,18 @@ Global
 		{5DE3DAB8-FC8F-462F-9369-A32A54D5E4F6}.Release|x64.Build.0 = Release|Any CPU
 		{5DE3DAB8-FC8F-462F-9369-A32A54D5E4F6}.Release|x86.ActiveCfg = Release|Any CPU
 		{5DE3DAB8-FC8F-462F-9369-A32A54D5E4F6}.Release|x86.Build.0 = Release|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Debug|x64.Build.0 = Debug|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Debug|x86.Build.0 = Debug|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Release|x64.ActiveCfg = Release|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Release|x64.Build.0 = Release|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Release|x86.ActiveCfg = Release|Any CPU
+		{277D16A8-40F7-4E2D-A953-62C4734295C4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -157,6 +171,7 @@ Global
 		{B36CB175-6642-4E6A-A6A2-E8A7913404CF} = {E1F2A3B4-0001-0002-0003-000400050006}
 		{DB162456-E5F3-4B9E-ABD8-E17B60C8C124} = {E1F2A3B4-0001-0002-0003-000400050006}
 		{5DE3DAB8-FC8F-462F-9369-A32A54D5E4F6} = {E1F2A3B4-0001-0002-0003-000400050006}
+		{277D16A8-40F7-4E2D-A953-62C4734295C4} = {E1F2A3B4-0001-0002-0003-000400050007}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F1E2D3C4-A5B6-C7D8-E9F0-112233445566}
