@@ -5,7 +5,13 @@
 "CodeBase"="$PackageFolder$\SqlPilot.Package.dll"
 "AllowsBackgroundLoad"=dword:00000001
 
+; NoSolution: raised at startup by the VS 2017 shell (SSMS 18/20) and by a plain SSMS 22 start.
 [$RootKey$\AutoLoadPackages\{adfc4e64-0397-11d1-9f4e-00a0c911004f}]
+"{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}"=dword:00000002
+
+; UICONTEXT_SSMS: SSMS 22's own context. An "ssms -S <server>" launch never raises
+; NoSolution, and this is the only other way the package gets loaded.
+[$RootKey$\AutoLoadPackages\{B7B07F42-6013-4C67-A504-C771CBC7625A}]
 "{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}"=dword:00000002
 
 [$RootKey$\ToolWindows\{c7d8e9f0-1a2b-3c4d-5e6f-7a8b9c0d1e2f}]

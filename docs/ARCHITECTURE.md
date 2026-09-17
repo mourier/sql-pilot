@@ -86,10 +86,11 @@ All verified working via Phase 0 spike on SSMS 18, 20, and 22:
 ```csharp
 [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
 [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
+[ProvideAutoLoad(UIContextSsms, PackageAutoLoadFlags.BackgroundLoad)]   // SSMS 22's own context
 [ProvideToolWindow(typeof(SqlPilotToolWindow))]
 ```
 
-The package loads automatically when SSMS starts via `ProvideAutoLoad`.
+The package loads automatically when SSMS starts via `ProvideAutoLoad`. Two contexts are needed: `NoSolution` covers SSMS 18/20 and a plain SSMS 22 start, but an `ssms -S <server>` launch of SSMS 22 never raises it, so the shell's own `UICONTEXT_SSMS` is registered as well. The attributes are documentation here — the shipped `SqlPilot.Package.pkgdef` is hand-maintained and must carry both entries itself (see SSMS_INTEGRATION_NOTES.md § Autoload).
 
 ### IObjectExplorerService
 

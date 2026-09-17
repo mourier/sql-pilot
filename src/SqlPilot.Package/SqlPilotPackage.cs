@@ -19,12 +19,23 @@ namespace SqlPilot.Package
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [InstalledProductRegistration("SQL Pilot", "Quick Search Tool for SSMS", "1.0.0")]
     [Guid(PackageGuidString)]
+    // Two autoload triggers, because no single context fires everywhere. NoSolution is
+    // what the VS 2017 shell in SSMS 18/20 raises at startup. SSMS 22 raises it on a
+    // plain start too, but NOT when launched as "ssms -S <server>" -- that auto-connect
+    // path skips it, and with no command table the Ctrl+D hotkey registered here is the
+    // only way in, so the extension simply never appeared. UICONTEXT_SSMS is the shell's
+    // own context (declared in SSMS.Application.pkgdef) and covers that path. A package
+    // loads once no matter how many of its contexts fire.
     [ProvideAutoLoad(UIContextGuids80.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
+    [ProvideAutoLoad(UIContextSsms, PackageAutoLoadFlags.BackgroundLoad)]
     [ProvideToolWindow(typeof(SqlPilotToolWindow), Style = VsDockStyle.Tabbed,
         Window = "d114938f-591c-46cf-a785-500a82d97410")]
     public sealed class SqlPilotPackage : AsyncPackage
     {
         public const string PackageGuidString = "8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b";
+
+        /// <summary>SSMS 22's own startup UI context ("UICONTEXT_SSMS" in SSMS.Application.pkgdef).</summary>
+        private const string UIContextSsms = "B7B07F42-6013-4C67-A504-C771CBC7625A";
 
         internal static string DataDirectory { get; private set; }
         internal SearchEngine SearchEngine { get; private set; }

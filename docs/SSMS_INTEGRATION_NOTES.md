@@ -338,6 +338,55 @@ Start-Process 'C:\Program Files\Microsoft SQL Server Management Studio 22\Releas
 
 Note: SSMS 22 uses `-log` (dash), not `/log` (slash). SSMS 18 accepts both.
 
+### SSMS 22's command line is not SSMS 18/20's
+
+Two differences that each cost a long debugging session:
+
+- **There is no `-E`.** SSMS 18/20 take `-E` for Windows auth; SSMS 22 dropped it (auth is
+  `-A <method>`, and Windows auth is the default). An unknown switch does **not** start the
+  IDE — it shows a usage-error dialog whose title is *"Microsoft SQL Server Management Studio"*,
+  the same as the real main window. Automation that finds a window by title and process will
+  happily attach to that 625×420 error box, and every "the extension didn't load" conclusion
+  drawn from it is meaningless. Check the window is IDE-sized, or that Object Explorer exists,
+  before trusting anything else.
+- **`-log` takes a filename** (`-log C:\path\ActivityLog.xml`). Bare `-log` consumes the next
+  argument as the filename, so `-log -S server` silently eats `-S`.
+
+### Autoload: NoSolution is not enough on SSMS 22
+
+The package autoloads on `UIContextGuids80.NoSolution`. That fires at startup in the VS 2017
+shell (SSMS 18/20) and on a **plain** SSMS 22 start, but **not** when SSMS 22 is launched as
+`ssms -S <server>` — the auto-connect path never raises it. Because `SqlPilotCommandSet.vsct`
+is compiled by neither csproj, the Ctrl+D hotkey registered during package init is the only way
+into the extension, so on that path it simply never appears, with no error anywhere.
+
+`SSMS.Application.pkgdef` declares the shell's own context, `UICONTEXT_SSMS =
+{B7B07F42-6013-4C67-A504-C771CBC7625A}`, and autoloading on that as well covers the `-S` path.
+Both triggers are in `SqlPilot.Package.pkgdef`; a package loads once however many fire.
+
+The pkgdef is **hand-maintained and checked in** — `Deploy-Dev.ps1` and `release.yml` copy
+`src/SqlPilot.Package/SqlPilot.Package.pkgdef`, and the VSSDK pkgdef-generation target does
+not run in this SDK-style project (same reason as the `.vsix` container target). Changing a
+`[ProvideAutoLoad]` attribute does nothing on its own; edit the pkgdef too.
+
+**How to test an autoload context without rebuilding or elevation:** VSIXInstaller will install
+a per-user `.vsix` whose only payload is a pkgdef adding one more `AutoLoadPackages` entry for
+the already-registered package GUID. If the package then loads, that context fires; a control
+probe with a made-up GUID must *not* make it load. This is how the two contexts above were
+established.
+
+```powershell
+# minimal probe pkgdef -- the package itself is already registered from Program Files
+[$RootKey$\AutoLoadPackages\{B7B07F42-6013-4C67-A504-C771CBC7625A}]
+"{8f4a3b2e-1c5d-4e6f-9a0b-7d8c2e3f4a5b}"=dword:00000002
+# zip it with extension.vsixmanifest + [Content_Types].xml, then:
+& "$ide\VSIXInstaller.exe" /quiet probe.vsix
+& "$ide\VSIXInstaller.exe" /quiet /uninstall:<identity>
+```
+
+Plain file copies into `%LocalAppData%\Microsoft\SSMS\<ver>\Extensions\` are **not** picked up
+(not even by `/updateconfiguration`); only VSIXInstaller registers per-user extensions.
+
 ## Debug Logging
 
 `Debug.WriteLine` from an extension goes to... nowhere useful by default. For real diagnostics:
@@ -349,6 +398,7 @@ For user-visible messages, use the SQL Pilot status bar (`IndexStatus.Text`).
 
 ## Things We Tried That Don't Work
 
+- **`Process.Modules` as a "did the extension load?" check** — managed assemblies loaded by a package don't reliably appear there; it reported "not loaded" for an extension that was demonstrably running. Drive the real UI instead: send Ctrl+D and look for the `SQL Pilot` pane through UI Automation — after first confirming the window you attached to is the IDE and not a dialog (see *SSMS 22's command line*).
 - **DTE commands** for Edit Top N Rows: `Query.EditTopNRows`, `ObjectExplorer.EditTopNRows`, etc. — none exist in SSMS
 - **`DesignTableOrView(DocumentType.OpenTable)`** — fails at `GetDsRef` on all three SSMS versions. Use `OpenTableHelperClass.EditTopNRows` instead
 - **ScheduleSqlScriptAsOneStep** — opens the SQL Agent Job Schedule dialog, not a query
