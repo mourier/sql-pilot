@@ -349,7 +349,6 @@ For user-visible messages, use the SQL Pilot status bar (`IndexStatus.Text`).
 
 ## Things We Tried That Don't Work
 
-- **`Process.Modules` as a "did the extension load?" check** — managed assemblies loaded by an SSMS package don't reliably show up there, so it reports "not loaded" for an extension that is demonstrably running. Drive the actual UI instead: send Ctrl+D and look for the `SQL Pilot` pane via UI Automation.
 - **DTE commands** for Edit Top N Rows: `Query.EditTopNRows`, `ObjectExplorer.EditTopNRows`, etc. — none exist in SSMS
 - **`DesignTableOrView(DocumentType.OpenTable)`** — fails at `GetDsRef` on all three SSMS versions. Use `OpenTableHelperClass.EditTopNRows` instead
 - **ScheduleSqlScriptAsOneStep** — opens the SQL Agent Job Schedule dialog, not a query
