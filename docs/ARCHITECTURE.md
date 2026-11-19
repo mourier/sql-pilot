@@ -104,6 +104,19 @@ The UI side is `ScopeViewModel` + `ServerScopeNode` (tri-state `bool? IsChecked`
 
 **LineStore gotcha**: composite keys are built with `LineStore.Join` / read back with `LineStore.Split`, so the escape scheme has exactly one owner. `LoadSettings` splits each line at the first *unescaped* separator — a plain `IndexOf('|')` would split a `D|server|database` key in the middle of its own escaped separator.
 
+## Theming
+
+The pane follows the SSMS colour theme; there is no theme setting of its own.
+
+All XAML — `SearchControl` and `ScopeControl` in `SqlPilot.UI`, and `SqlPilotToolWindowControl` in the Package — refers only to SQL Pilot's own brush keys through `DynamicResource` (`ResultsBackground`, `PrimaryForeground`, `SecondaryForeground`, `IconForeground`, `InputBackground`, `ButtonBackground`, `MenuBackground`, `InfoBarBackground`, …). Nothing names a Windows `SystemColors` key or a fixed colour. Who supplies the brushes depends on the host:
+
+- **In SSMS** — `SqlPilot.Package/Integration/SsmsThemeAdapter.cs`. `SqlPilotToolWindow.Initialize` creates one for the control before it is shown. It reads colours with `VSColorTheme.GetThemedColor` (`EnvironmentColors`, `CommonControlsColors`, `InfoBarColors`), writes frozen brushes into the control's `Resources`, and does it again on `VSColorTheme.ThemeChanged`, so switching theme repaints an open pane. The tool window disposes it, which unsubscribes. A key the shell has no colour for falls back to the matching Windows system colour. It also adopts the shell's scroll bar style (`VsResourceKeys.ScrollBarStyleKey`) when the shell publishes one.
+- **In the demo** — `SqlPilot.UI/Themes/DarkTheme.xaml`, merged by `SqlPilot.UI.Demo/App.xaml`. `LightTheme.xaml` carries the same keys.
+
+The adapter is C# in the Package project on purpose: `SqlPilot.UI` keeps no VSSDK reference, and no XAML has to name a Shell assembly, which would need to resolve in both the VSSDK 15.x and 17.x builds. Every type it uses exists in both.
+
+Adding a colour means adding the key in three places: the XAML that uses it, `SsmsThemeAdapter.Apply`, and both theme dictionaries. Two WPF details shaped the XAML: a control with a local `Style` ignores implicit styles from its host (so the search box sets its colours as plain properties), and `TreeView`, `TreeViewItem` and the stock button and context-menu templates set or hard-code their own colours (so the tool window carries small themed templates for buttons and the context menu, and hands the text colour to the tree explicitly).
+
 ## SSMS Integration Points
 
 All verified working via Phase 0 spike on SSMS 18, 20, and 22:
