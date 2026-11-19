@@ -18,30 +18,38 @@
 
     <!-- Search Box -->
     <Border Grid.Row="0" Padding="4" Background="{DynamicResource SearchBoxBackground}">
-      <TextBox x:Name="SearchTextBox"
-               Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-               FontSize="13"
-               Padding="6,4"
-               VerticalContentAlignment="Center">
-        <TextBox.Style>
-          <Style TargetType="TextBox">
-            <Style.Triggers>
-              <Trigger Property="Text" Value="">
-                <Setter Property="Background">
-                  <Setter.Value>
-                    <VisualBrush AlignmentX="Left" AlignmentY="Center" Stretch="None">
-                      <VisualBrush.Visual>
-                        <Label Content="Search objects... (Ctrl+D)"
-                               Foreground="Gray" FontSize="13" Padding="6,4" />
-                      </VisualBrush.Visual>
-                    </VisualBrush>
-                  </Setter.Value>
-                </Setter>
-              </Trigger>
-            </Style.Triggers>
-          </Style>
-        </TextBox.Style>
-      </TextBox>
+      <Grid>
+        <!-- Colours are set directly, not through a Style: a local Style would stop
+             the host's theme from reaching the box. -->
+        <TextBox x:Name="SearchTextBox"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                 FontSize="13"
+                 Padding="6,4"
+                 VerticalContentAlignment="Center"
+                 Background="{DynamicResource InputBackground}"
+                 Foreground="{DynamicResource InputForeground}"
+                 BorderBrush="{DynamicResource InputBorder}"
+                 CaretBrush="{DynamicResource InputForeground}" />
+        <!-- Placeholder, shown while the box is empty. An overlay rather than a
+             VisualBrush background so it can take a themed colour. -->
+        <TextBlock Text="Search objects... (Ctrl+D)"
+                   FontSize="13"
+                   Margin="10,0,0,0"
+                   VerticalAlignment="Center"
+                   IsHitTestVisible="False"
+                   Foreground="{DynamicResource SecondaryForeground}">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock">
+              <Setter Property="Visibility" Value="Collapsed" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Text, ElementName=SearchTextBox}" Value="">
+                  <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+      </Grid>
     </Border>
 
     <!-- Results List with virtualization -->
@@ -117,7 +125,7 @@
                        FontSize="12"
                        VerticalAlignment="Center"
                        Margin="2,0"
-                       Foreground="Gold"
+                       Foreground="{DynamicResource FavoriteForeground}"
                        Visibility="{Binding IsFavorite, Converter={StaticResource BoolToVis}}" />
           </Grid>
         </DataTemplate>

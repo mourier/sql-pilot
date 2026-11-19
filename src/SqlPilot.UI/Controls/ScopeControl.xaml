@@ -4,8 +4,8 @@
              xmlns:vm="clr-namespace:SqlPilot.UI.ViewModels">
 
   <!-- Deliberately theme-neutral: colours are inherited from the host so SSMS
-       (SystemColors) and the demo (DarkTheme.xaml) each style it their own way.
-       DataContext is a ScopeViewModel. -->
+       (the shell theme, via SsmsThemeAdapter) and the demo (DarkTheme.xaml) each
+       style it their own way. DataContext is a ScopeViewModel. -->
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -50,6 +50,9 @@
       <TreeView.ItemContainerStyle>
         <Style TargetType="TreeViewItem">
           <Setter Property="IsExpanded" Value="True" />
+          <!-- TreeViewItem sets its own Foreground, so the host's text colour has to
+               be handed to it; the selected state still overrides this. -->
+          <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
           <!-- Without this the item announces its bound type name when arrowed onto.
                Both node types expose Name, so one setter covers servers and databases. -->
           <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
