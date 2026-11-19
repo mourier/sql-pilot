@@ -422,6 +422,15 @@ established.
 Plain file copies into `%LocalAppData%\Microsoft\SSMS\<ver>\Extensions\` are **not** picked up
 (not even by `/updateconfiguration`); only VSIXInstaller registers per-user extensions.
 
+## Following the SSMS theme
+
+`VSColorTheme.GetThemedColor(EnvironmentColors.…)` and `VSColorTheme.ThemeChanged` work in all three versions, including the VS 2017 shell in SSMS 18/20 — the `EnvironmentColors`, `CommonControlsColors` and `InfoBarColors` keys resolve there to the Blue theme's values. `SsmsThemeAdapter` is the only consumer; see `docs/ARCHITECTURE.md` § Theming.
+
+- **A tool window gets nothing for free.** WPF content hosted in a `ToolWindowPane` is not given themed brushes or implicit styles; unresolved `DynamicResource` keys just leave the property unset (a transparent background, black text), which looks fine in a light theme and unreadable in a dark one.
+- **Stock WPF templates hard-code light colours**: button hover/pressed fills, and the icon gutter in the `ContextMenu` template. Setting `Background`/`Foreground` is not enough for those two; they need their own templates. `ListBoxItem` selection is translucent and survives a dark background as it is.
+- **`TreeView` and `TreeViewItem` set their own `Foreground`**, so text inside a tree does not inherit the host's colour.
+- **SSMS 22 themes** are under `Tools > Theme` and switch live: Light, Dark and a set of tinted ones (Cool Breeze, Moonlight Glow, …). There is no "Blue" any more. SSMS 18/20 offer Blue and Light only.
+
 ## Debug Logging
 
 `Debug.WriteLine` from an extension goes to... nowhere useful by default. For real diagnostics:
