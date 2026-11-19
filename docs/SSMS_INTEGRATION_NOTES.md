@@ -42,9 +42,26 @@ To get the real tree node, you must:
 
 `SynchronizeTree` walks down the tree expanding each level. If any level isn't yet cached, it triggers a new connection to load it. This can pop up the "Connect to Server" dialog. To avoid: ensure the user has already expanded the relevant database folder in OE before calling it.
 
-### GetConnectedServerNames via GetSelectedNodes
+### Enumerating connected servers
 
-The most reliable way to get connected servers is `oeService.GetSelectedNodes(out count, out INodeInformation[] nodes)` — but this only returns nodes the user has currently selected. For a full enumeration without user interaction, walk `treeView.Nodes` directly.
+Every connected server is a root node of the tree. Walk `treeView.Nodes` and ask each root for its `INodeInformation` — the node itself is the service provider:
+
+```csharp
+var treeView = oeControl as TreeView;                      // see above: cast, don't search
+var nodeInfoType = ReflectionTypeCache.FindType("...ObjectExplorer.INodeInformation");
+foreach (TreeNode root in treeView.Nodes)
+{
+    var nodeInfo = (root as IServiceProvider)?.GetService(nodeInfoType);
+    var conn = nodeInfo?.GetType().GetProperty("Connection")?.GetValue(nodeInfo);
+    // conn.ServerName, conn.UserName, conn.Password, conn.UseIntegratedSecurity ...
+}
+```
+
+This is `ObjectExplorerBridge.GetConnectedServerNames`. Verified on SSMS 18, 20 and 22 with several servers connected, Windows and SQL authentication — for a SQL login the root's `Connection` carries the password, so indexing and query windows work without a prompt.
+
+`oeService.GetSelectedNodes(out count, out INodeInformation[] nodes)` is kept only as a last resort: it returns just the nodes the user has selected, so on its own it sees one server however many are connected. That was the "only the last server loaded is usable" bug (issue #9) — the tree lookup silently failed (see *Things We Tried That Don't Work*), everything fell through to `GetSelectedNodes`, and each refresh replaced the index with the selected server alone.
+
+A refresh rebuilds the whole index and starts by clearing it, so `RefreshIndexAsync` is single-flight: a request arriving mid-run is queued and served by one more run. `ConnectionWatcher` likewise raises one event per poll, not one per new server.
 
 The connection extracted from a node's `Connection` property is a `SqlConnectionInfoWithConnection` — it has a live, already-authenticated connection. Never try to construct a new connection from parts; reuse this one.
 
@@ -351,6 +368,20 @@ Two differences that each cost a long debugging session:
   before trusting anything else.
 - **`-log` takes a filename** (`-log C:\path\ActivityLog.xml`). Bare `-log` consumes the next
   argument as the filename, so `-log -S server` silently eats `-S`.
+- **`-S <server>` asks first.** SSMS 22 shows a *"Connect to the following server?"* Yes/No
+  prompt inside the main window before connecting; nothing is connected until it is answered.
+  SSMS 18/20 (`-S <server> -E`) connect straight away.
+
+### Driving a multi-server test through UI Automation
+
+To get a second server into Object Explorer: `File > Connect Object Explorer...`. On SSMS 22
+that opens a WPF `Connect` window (`Server Name` / `Authentication` / `User Name` / `Password`
+elements, button id `OkButton`); on 18/20 it is the WinForms `Connect to Server` dialog, whose
+`Authentication:` combo is a drop-down list (focus it and type the first letter) and whose
+user field is labelled `Login:` once SQL authentication is selected. Two LocalDB instances
+(`sqllocaldb create <name>`) make a cheap pair of servers, and LocalDB accepts SQL logins.
+The pane itself exposes `IndexStatus`, `SearchTextBox`, `ResultsListBox`, `ScopeButton` and
+`RefreshButton` as automation ids.
 
 ### Autoload: NoSolution is not enough on SSMS 22
 
@@ -399,6 +430,8 @@ For user-visible messages, use the SQL Pilot status bar (`IndexStatus.Text`).
 ## Things We Tried That Don't Work
 
 - **`Process.Modules` as a "did the extension load?" check** — managed assemblies loaded by a package don't reliably appear there; it reported "not loaded" for an extension that was demonstrably running. Drive the real UI instead: send Ctrl+D and look for the `SQL Pilot` pane through UI Automation — after first confirming the window you attached to is the IDE and not a dialog (see *SSMS 22's command line*).
+- **`FindChildOfType<TreeView>(oeControl)` to locate the Object Explorer tree** — `Tree` *is* the `TreeView` and has no child controls, so the search returns null without any error. Server enumeration then quietly fell back to `GetSelectedNodes`, which looks fine with one server and breaks with two. Cast `Tree` directly.
+- **`IObjectExplorerService.GetNodeInformation(treeNode)` via reflection** to get a root's connection — it sat behind the lookup above and never ran. Use `(root as IServiceProvider).GetService(INodeInformation)`.
 - **DTE commands** for Edit Top N Rows: `Query.EditTopNRows`, `ObjectExplorer.EditTopNRows`, etc. — none exist in SSMS
 - **`DesignTableOrView(DocumentType.OpenTable)`** — fails at `GetDsRef` on all three SSMS versions. Use `OpenTableHelperClass.EditTopNRows` instead
 - **ScheduleSqlScriptAsOneStep** — opens the SQL Agent Job Schedule dialog, not a query

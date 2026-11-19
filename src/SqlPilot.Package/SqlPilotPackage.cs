@@ -97,7 +97,7 @@ namespace SqlPilot.Package
 
             // Start polling for new server connections
             _connectionWatcher = new ConnectionWatcher(this);
-            _connectionWatcher.ServerConnected += OnServerConnected;
+            _connectionWatcher.ServersConnected += OnServersConnected;
 
             // Check for updates: fire-and-forget; all I/O runs off the UI thread.
             // Throttled to once per 24h via LastUpdateCheckUtc; timestamp is persisted
@@ -130,7 +130,7 @@ namespace SqlPilot.Package
             });
         }
 
-        private void OnServerConnected(string serverName)
+        private void OnServersConnected()
         {
             _ = JoinableTaskFactory.RunAsync(async () =>
             {

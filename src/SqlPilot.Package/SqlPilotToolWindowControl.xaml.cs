@@ -20,6 +20,8 @@ namespace SqlPilot.Package
     {
         private readonly SqlPilotPackage _package;
         private UpdateInfo _pendingUpdate;
+        private bool _refreshRunning;
+        private bool _refreshQueued;
 
         public SearchViewModel ViewModel { get; }
 
@@ -57,7 +59,37 @@ namespace SqlPilot.Package
                 SearchPanel.FocusSearchBox();
         }
 
+        /// <summary>
+        /// Rebuild the whole index. Single-flight: a refresh starts by clearing the index,
+        /// so two overlapping runs would wipe each other's work. A request that arrives
+        /// mid-run (the watcher spotting another server, a second Refresh click) is
+        /// remembered and served by one more run afterwards. UI thread only.
+        /// </summary>
         public async Task RefreshIndexAsync()
+        {
+            if (_refreshRunning)
+            {
+                _refreshQueued = true;
+                return;
+            }
+
+            _refreshRunning = true;
+            try
+            {
+                do
+                {
+                    _refreshQueued = false;
+                    await RefreshIndexCoreAsync();
+                }
+                while (_refreshQueued);
+            }
+            finally
+            {
+                _refreshRunning = false;
+            }
+        }
+
+        private async Task RefreshIndexCoreAsync()
         {
             try
             {
@@ -68,7 +100,7 @@ namespace SqlPilot.Package
 
                 if (servers.Count == 0)
                 {
-                    IndexStatus.Text = "No servers connected. Select a server in Object Explorer and click Refresh.";
+                    IndexStatus.Text = "No servers connected. Connect to a server in Object Explorer.";
                     return;
                 }
 
