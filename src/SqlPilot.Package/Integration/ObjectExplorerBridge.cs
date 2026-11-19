@@ -63,54 +63,48 @@ namespace SqlPilot.Package.Integration
             return treeProp?.GetValue(oes);
         }
 
-        private TreeView FindTreeView()
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
+        private const string NodeInformationTypeName =
+            "Microsoft.SqlServer.Management.UI.VSIntegration.ObjectExplorer.INodeInformation";
 
-            var oeControl = GetObjectExplorerControl();
-            if (oeControl is Control control)
-                return FindChildOfType<TreeView>(control);
-
-            return null;
-        }
-
-        private static T FindChildOfType<T>(Control parent) where T : Control
-        {
-            foreach (Control child in parent.Controls)
-            {
-                if (child is T match) return match;
-                var found = FindChildOfType<T>(child);
-                if (found != null) return found;
-            }
-            return null;
-        }
-
+        /// <summary>
+        /// Every server connected in Object Explorer, whichever node is selected.
+        /// Also refreshes the cached connection for each one.
+        /// </summary>
         public IReadOnlyList<string> GetConnectedServerNames()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
             var results = new List<string>();
 
-            // Try WinForms TreeView first
-            var treeView = FindTreeView();
-            if (treeView != null)
+            // Tree IS the TreeView (ObjectExplorerControl derives from it) -- it has no
+            // child controls, so searching its Controls for one finds nothing.
+            if (GetObjectExplorerControl() is TreeView treeView)
             {
-                foreach (TreeNode node in treeView.Nodes)
+                var nodeInfoType = ReflectionTypeCache.FindType(NodeInformationTypeName);
+
+                foreach (TreeNode root in treeView.Nodes)
                 {
-                    string serverName = TryGetServerFromNode(node);
-                    if (string.IsNullOrEmpty(serverName))
-                        serverName = ParseServerNameFromText(node.Text);
-                    if (!string.IsNullOrEmpty(serverName))
+                    // A root we can't read a connection from is skipped rather than
+                    // listed by its node text: with no connection it could only be
+                    // indexed as an empty server.
+                    string serverName = TryGetServerFromRootNode(root, nodeInfoType);
+                    if (!string.IsNullOrEmpty(serverName) && !ContainsServer(results, serverName))
                         results.Add(serverName);
                 }
             }
-            else
-            {
-                // Fallback: use GetSelectedNodes API
+
+            // Last resort: only sees the nodes the user has selected.
+            if (results.Count == 0)
                 TryGetFromSelectedNodes(results);
-            }
 
             return results;
+        }
+
+        private static bool ContainsServer(List<string> servers, string serverName)
+        {
+            foreach (var s in servers)
+                if (string.Equals(s, serverName, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
         }
 
         public ConnectionDescriptor GetConnectionInfo(string serverName)
@@ -137,7 +131,7 @@ namespace SqlPilot.Package.Integration
             var oeControl = GetObjectExplorerControl();
             if (!(oeControl is TreeView treeView)) return logicalServerName;
 
-            var inodeInfoType = ReflectionTypeCache.FindType("Microsoft.SqlServer.Management.UI.VSIntegration.ObjectExplorer.INodeInformation");
+            var inodeInfoType = ReflectionTypeCache.FindType(NodeInformationTypeName);
             if (inodeInfoType == null) return logicalServerName;
 
             foreach (TreeNode root in treeView.Nodes)
@@ -182,7 +176,7 @@ namespace SqlPilot.Package.Integration
             var oeControl = GetObjectExplorerControl();
             if (!(oeControl is TreeView treeView)) { candidates.Add(logicalServerName); return candidates; }
 
-            var inodeInfoType = ReflectionTypeCache.FindType("Microsoft.SqlServer.Management.UI.VSIntegration.ObjectExplorer.INodeInformation");
+            var inodeInfoType = ReflectionTypeCache.FindType(NodeInformationTypeName);
             if (inodeInfoType == null) { candidates.Add(logicalServerName); return candidates; }
 
             string bestMatch = null;
@@ -219,27 +213,19 @@ namespace SqlPilot.Package.Integration
             return candidates;
         }
 
-        private string TryGetServerFromNode(TreeNode node)
+        private string TryGetServerFromRootNode(TreeNode root, Type nodeInfoType)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
             try
             {
-                var oes = GetObjectExplorerService();
-                if (oes == null) return null;
+                // OE tree nodes hand out their INodeInformation as a service.
+                if (nodeInfoType == null || !(root is IServiceProvider sp)) return null;
 
-                var getNodeInfoMethod = oes.GetType().GetMethod("GetNodeInformation",
-                    BindingFlags.Public | BindingFlags.Instance);
-                if (getNodeInfoMethod == null) return null;
-
-                var nodeInfo = getNodeInfoMethod.Invoke(oes, new object[] { node });
-                if (nodeInfo == null) return null;
-
-                return ExtractConnectionFromNodeInfo(nodeInfo);
+                var nodeInfo = sp.GetService(nodeInfoType);
+                return nodeInfo == null ? null : ExtractConnectionFromNodeInfo(nodeInfo);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"SqlPilot: GetNodeInformation error: {ex.Message}");
+                Debug.WriteLine($"SqlPilot: root node connection error: {ex.Message}");
                 return null;
             }
         }
@@ -301,13 +287,6 @@ namespace SqlPilot.Package.Integration
 
             _connectionCache[serverName] = descriptor;
             return serverName;
-        }
-
-        private static string ParseServerNameFromText(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return null;
-            int parenIdx = text.IndexOf(" (", StringComparison.Ordinal);
-            return parenIdx > 0 ? text.Substring(0, parenIdx).Trim() : text.Trim();
         }
 
         public bool NavigateToObject(string serverName, string databaseName, string schemaName, string objectName, string objectType)
