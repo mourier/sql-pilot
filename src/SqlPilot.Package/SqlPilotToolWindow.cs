@@ -23,8 +23,16 @@ namespace SqlPilot.Package
             {
                 var control = new SqlPilotToolWindowControl(package);
 
-                // Before the control is shown, so it never paints unthemed.
-                _themeAdapter = new SsmsThemeAdapter(control);
+                // Before the control is shown, so it never paints unthemed. Theming is
+                // cosmetic: a shell that lacks one of the theme types must still get a pane.
+                try
+                {
+                    _themeAdapter = new SsmsThemeAdapter(control);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SqlPilot theme error: {ex}");
+                }
                 Content = control;
             }
         }
