@@ -140,8 +140,16 @@
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="IndexStatus" Grid.Column="0" FontSize="11"
                    Foreground="{DynamicResource SecondaryForeground}"
-                   VerticalAlignment="Center" Text="Not indexed. Connect to a server to start."
-                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                   VerticalAlignment="Center" Text="Not indexed. Connect to a server to start.">
+          <!-- The status is one unwrapped row; the tooltip shows it in full. A tooltip
+               lives in its own popup, so it reaches the status through PlacementTarget. -->
+          <TextBlock.ToolTip>
+            <ToolTip>
+              <TextBlock MaxWidth="400" TextWrapping="Wrap"
+                         Text="{Binding PlacementTarget.Text, RelativeSource={RelativeSource AncestorType=ToolTip}}" />
+            </ToolTip>
+          </TextBlock.ToolTip>
+        </TextBlock>
         <ToggleButton x:Name="ScopeButton" Grid.Column="1" Padding="6,2"
                       Margin="0,0,4,0"
                       AutomationProperties.Name="Scope"

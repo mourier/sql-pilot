@@ -283,7 +283,7 @@ Azure SQL Database (`*.database.windows.net`) differs from on-prem SQL Server in
 
 SSMS's internal Object Explorer URNs use the logical short name, not the full FQDN. `foo.database.windows.net` becomes `Server[@Name='foo']`. If you build a URN from `ConnectionDescriptor.ServerName` (which has the full FQDN), `IObjectExplorerService.FindNode` returns null and table-based actions (Edit Top N Rows, etc.) silently fall back.
 
-**Fix**: walk the OE tree root nodes and extract each root's `Context` property (which carries the URN as SSMS stored it). Match by prefix against the logical server name, and use the extracted root server name when building URNs. See `ObjectExplorerBridge.ResolveUrnServerName`. For on-prem servers the URN equals the logical name, so the walk is skipped as a fast path.
+**Fix**: walk the OE tree root nodes and extract each root's `Context` property (which carries the URN as SSMS stored it). Match by prefix against the logical server name, and use the extracted root server name when building URNs. See `ObjectExplorerBridge.GetCandidateUrnServerNames`: it always walks the roots and returns the best prefix match first, then the other roots, then the logical name, and the caller tries each in turn. There is no on-prem shortcut, because an on-prem logical name (a raw IP address, `HOST\INSTANCE`) can differ from the URN name too.
 
 ### `USE [database]` is not supported
 
