@@ -430,6 +430,9 @@ Plain file copies into `%LocalAppData%\Microsoft\SSMS\<ver>\Extensions\` are **n
 - **Stock WPF templates hard-code light colours**: button hover/pressed fills, and the icon gutter in the `ContextMenu` template. Setting `Background`/`Foreground` is not enough for those two; they need their own templates. `ListBoxItem` selection is translucent and survives a dark background as it is.
 - **`TreeView` and `TreeViewItem` set their own `Foreground`**, so text inside a tree does not inherit the host's colour.
 - **SSMS 22 themes** are under `Tools > Theme` and switch live: Light, Dark and a set of tinted ones (Cool Breeze, Moonlight Glow, …). There is no "Blue" any more. SSMS 18/20 offer Blue and Light only.
+- **Scroll bars**: `VsResourceKeys.ScrollBarStyleKey` resolves through `Application.Current.TryFindResource` in the VS 2017 shell (SSMS 18/20) as well as SSMS 22. Put on the hosted control as the implicit `ScrollBar` style it gives the results list and the Scope tree the shell's own scroll bar, and it follows a live theme switch without being reassigned. Checked on SSMS 22 (Dark, Light, Cool Breeze) and SSMS 20; not run on 18, which shares 20's shell.
+- **Testing a scrolling list**: on a large monitor 30 results fit in a docked pane without scrolling. Shrink the SSMS window, or open the Scope panel with a few dozen databases connected, before concluding anything about scroll bars.
+- **Testing the update bar**: a dev build is version 1.0.0, older than any release, so it shows the bar whenever the update check actually runs. The check is throttled to once per 24 hours; blank the `LastUpdateCheckUtc|` line in `%AppData%\SqlPilot\settings.json` (keep the file BOM-less) and restart SSMS.
 
 ## Debug Logging
 
