@@ -20,6 +20,8 @@ namespace SqlPilot.Package
     {
         private readonly SqlPilotPackage _package;
         private UpdateInfo _pendingUpdate;
+        private bool _refreshRunning;
+        private bool _refreshQueued;
 
         public SearchViewModel ViewModel { get; }
 
@@ -57,7 +59,37 @@ namespace SqlPilot.Package
                 SearchPanel.FocusSearchBox();
         }
 
+        /// <summary>
+        /// Rebuild the whole index. Single-flight: a refresh starts by clearing the index,
+        /// so two overlapping runs would wipe each other's work. A request that arrives
+        /// mid-run (the watcher spotting another server, a second Refresh click) is
+        /// remembered and served by one more run afterwards. UI thread only.
+        /// </summary>
         public async Task RefreshIndexAsync()
+        {
+            if (_refreshRunning)
+            {
+                _refreshQueued = true;
+                return;
+            }
+
+            _refreshRunning = true;
+            try
+            {
+                do
+                {
+                    _refreshQueued = false;
+                    await RefreshIndexCoreAsync();
+                }
+                while (_refreshQueued);
+            }
+            finally
+            {
+                _refreshRunning = false;
+            }
+        }
+
+        private async Task RefreshIndexCoreAsync()
         {
             try
             {
@@ -68,18 +100,37 @@ namespace SqlPilot.Package
 
                 if (servers.Count == 0)
                 {
-                    IndexStatus.Text = "No servers connected. Select a server in Object Explorer and click Refresh.";
+                    IndexStatus.Text = "No servers connected. Connect to a server in Object Explorer.";
                     return;
                 }
 
                 _package.SearchEngine.ClearAll();
                 ScopeViewModel.PruneServers(servers);
 
+                // One server at a time, each on its own: the index was just cleared, so a
+                // server that can't be reached (login disabled, instance stopped) must not
+                // take the servers after it down with it.
+                var failures = new List<string>();
                 foreach (var serverName in servers)
-                    await IndexServerAsync(serverName);
+                {
+                    try
+                    {
+                        await IndexServerAsync(serverName);
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add($"{serverName} ({ex.GetBaseException().Message})");
+                        Debug.WriteLine($"SqlPilot index error for {serverName}: {ex}");
+                    }
+                }
 
                 ScopeViewModel.UpdateSummary();
-                IndexStatus.Text = ScopeViewModel.DescribeIndexStatus(_package.SearchEngine.GetIndexedObjectCount());
+                string status = ScopeViewModel.DescribeIndexStatus(_package.SearchEngine.GetIndexedObjectCount());
+                if (failures.Count > 0)
+                    status += $" Could not index {string.Join("; ", failures)}";
+                IndexStatus.Text = status;
+                // The status line is one unwrapped row; the tooltip keeps a long error readable.
+                IndexStatus.ToolTip = failures.Count > 0 ? status : null;
 
                 // Re-run any pending search now that the index is populated
                 ViewModel.Rerun();

@@ -8,7 +8,7 @@ namespace SqlPilot.Package.Services
 {
     /// <summary>
     /// Polls Object Explorer every few seconds for new server connections.
-    /// When a new server is detected, fires the ServerConnected event.
+    /// Fires ServersConnected once per poll in which new servers turned up.
     /// </summary>
     public sealed class ConnectionWatcher : IDisposable
     {
@@ -17,7 +17,7 @@ namespace SqlPilot.Package.Services
         private readonly HashSet<string> _knownServers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool _disposed;
 
-        public event Action<string> ServerConnected;
+        public event Action ServersConnected;
 
         public ConnectionWatcher(SqlPilotPackage package, int intervalMs = 3000)
         {
@@ -38,14 +38,20 @@ namespace SqlPilot.Package.Services
 
                     var servers = _package.ObjectExplorerBridge.GetConnectedServerNames();
 
+                    bool anyNew = false;
                     foreach (var server in servers)
                     {
                         if (_knownServers.Add(server))
                         {
                             Debug.WriteLine($"SqlPilot: New server detected: {server}");
-                            ServerConnected?.Invoke(server);
+                            anyNew = true;
                         }
                     }
+
+                    // One event however many servers appeared: a refresh re-indexes
+                    // every connected server anyway.
+                    if (anyNew)
+                        ServersConnected?.Invoke();
                 });
             }
             catch (Exception ex)
