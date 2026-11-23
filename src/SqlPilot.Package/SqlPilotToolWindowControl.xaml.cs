@@ -107,11 +107,30 @@ namespace SqlPilot.Package
                 _package.SearchEngine.ClearAll();
                 ScopeViewModel.PruneServers(servers);
 
+                // One server at a time, each on its own: the index was just cleared, so a
+                // server that can't be reached (login disabled, instance stopped) must not
+                // take the servers after it down with it.
+                var failures = new List<string>();
                 foreach (var serverName in servers)
-                    await IndexServerAsync(serverName);
+                {
+                    try
+                    {
+                        await IndexServerAsync(serverName);
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add($"{serverName} ({ex.GetBaseException().Message})");
+                        Debug.WriteLine($"SqlPilot index error for {serverName}: {ex}");
+                    }
+                }
 
                 ScopeViewModel.UpdateSummary();
-                IndexStatus.Text = ScopeViewModel.DescribeIndexStatus(_package.SearchEngine.GetIndexedObjectCount());
+                string status = ScopeViewModel.DescribeIndexStatus(_package.SearchEngine.GetIndexedObjectCount());
+                if (failures.Count > 0)
+                    status += $" Could not index {string.Join("; ", failures)}";
+                IndexStatus.Text = status;
+                // The status line is one unwrapped row; the tooltip keeps a long error readable.
+                IndexStatus.ToolTip = failures.Count > 0 ? status : null;
 
                 // Re-run any pending search now that the index is populated
                 ViewModel.Rerun();
