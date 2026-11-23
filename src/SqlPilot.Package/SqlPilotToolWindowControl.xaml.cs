@@ -20,8 +20,9 @@ namespace SqlPilot.Package
     {
         private readonly SqlPilotPackage _package;
         private UpdateInfo _pendingUpdate;
-        private bool _refreshRunning;
-        private bool _refreshQueued;
+        private Task _indexWork = Task.CompletedTask;
+        private int _indexWorkPending;
+        private bool _refreshWaiting;
 
         public SearchViewModel ViewModel { get; }
 
@@ -60,34 +61,55 @@ namespace SqlPilot.Package
         }
 
         /// <summary>
-        /// Rebuild the whole index. Single-flight: a refresh starts by clearing the index,
-        /// so two overlapping runs would wipe each other's work. A request that arrives
-        /// mid-run (the watcher spotting another server, or a Refresh click after a scope
-        /// toggle that finished mid-run re-enabled the button) is remembered and served by
-        /// one more run afterwards. UI thread only.
+        /// Run one piece of index work -- a full refresh or a scope toggle -- after any
+        /// that is already under way, never alongside it. A refresh clears the index and
+        /// rebuilds it, so anything overlapping it is wiped or done twice, and the two
+        /// would fight over the status line. The Refresh button and the scope tree stay
+        /// disabled until the last queued piece has finished. UI thread only.
         /// </summary>
-        public async Task RefreshIndexAsync()
+        private Task EnqueueIndexWork(Func<Task> work)
         {
-            if (_refreshRunning)
-            {
-                _refreshQueued = true;
-                return;
-            }
+            var previous = _indexWork;
+            _indexWorkPending++;
+            SetBusy(true);
+            return _indexWork = RunAsync();
 
-            _refreshRunning = true;
-            try
+            async Task RunAsync()
             {
-                do
+                try
                 {
-                    _refreshQueued = false;
-                    await RefreshIndexCoreAsync();
+                    // Each piece reports its own errors, so a failure in the one before
+                    // is not ours to rethrow. Letting it through would skip this piece
+                    // and every one after it, and Refresh would do nothing from then on.
+                    try { await previous; }
+                    catch (Exception ex) { Debug.WriteLine($"SqlPilot: earlier index work failed: {ex.Message}"); }
+
+                    await work();
                 }
-                while (_refreshQueued);
+                finally
+                {
+                    if (--_indexWorkPending == 0)
+                        SetBusy(false);
+                }
             }
-            finally
+        }
+
+        /// <summary>
+        /// Rebuild the whole index. Requests made while a refresh is still waiting its
+        /// turn collapse into that one; a request made once it has started (the watcher
+        /// spotting another server mid-run) gets one more run afterwards.
+        /// </summary>
+        public Task RefreshIndexAsync()
+        {
+            if (_refreshWaiting)
+                return _indexWork;
+
+            _refreshWaiting = true;
+            return EnqueueIndexWork(() =>
             {
-                _refreshRunning = false;
-            }
+                _refreshWaiting = false;
+                return RefreshIndexCoreAsync();
+            });
         }
 
         private async Task RefreshIndexCoreAsync()
@@ -95,7 +117,6 @@ namespace SqlPilot.Package
             try
             {
                 IndexStatus.Text = "Indexing...";
-                SetBusy(true);
 
                 var servers = _package.ObjectExplorerBridge.GetConnectedServerNames();
 
@@ -139,10 +160,6 @@ namespace SqlPilot.Package
                 IndexStatus.Text = $"Indexing error: {ex.Message}";
                 Debug.WriteLine($"SqlPilot index error: {ex}");
             }
-            finally
-            {
-                SetBusy(false);
-            }
         }
 
         /// <summary>
@@ -184,7 +201,7 @@ namespace SqlPilot.Package
 
         private void OnScopeToggled(object sender, ScopeToggleEventArgs e)
         {
-            _ = ApplyScopeToggleAsync(e);
+            _ = EnqueueIndexWork(() => ApplyScopeToggleAsync(e));
         }
 
         /// <summary>
@@ -196,8 +213,6 @@ namespace SqlPilot.Package
         {
             try
             {
-                SetBusy(true);
-
                 if (e.DatabaseName == null)
                 {
                     if (e.Included)
@@ -220,10 +235,6 @@ namespace SqlPilot.Package
             {
                 IndexStatus.Text = $"Scope update error: {ex.Message}";
                 Debug.WriteLine($"SqlPilot scope error: {ex}");
-            }
-            finally
-            {
-                SetBusy(false);
             }
         }
 
