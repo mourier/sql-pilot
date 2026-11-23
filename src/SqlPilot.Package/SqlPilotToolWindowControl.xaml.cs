@@ -78,7 +78,12 @@ namespace SqlPilot.Package
             {
                 try
                 {
-                    await previous; // never faults: each piece reports its own errors
+                    // Each piece reports its own errors, so a failure in the one before
+                    // is not ours to rethrow. Letting it through would skip this piece
+                    // and every one after it, and Refresh would do nothing from then on.
+                    try { await previous; }
+                    catch (Exception ex) { Debug.WriteLine($"SqlPilot: earlier index work failed: {ex.Message}"); }
+
                     await work();
                 }
                 finally
