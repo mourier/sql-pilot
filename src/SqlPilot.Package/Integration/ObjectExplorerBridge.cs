@@ -104,8 +104,9 @@ namespace SqlPilot.Package.Integration
         }
 
         /// <summary>
-        /// The INodeInformation of every root node in Object Explorer -- one per connected
-        /// server. Empty when the tree or the type can't be reached.
+        /// The INodeInformation of every Object Explorer root node that hands one out. Not
+        /// filtered by server type, and a server connected twice has two roots. Empty when
+        /// the tree or the type can't be reached.
         /// </summary>
         private List<object> GetRootNodeInfos()
         {
@@ -165,24 +166,6 @@ namespace SqlPilot.Package.Integration
         {
             _connectionCache.TryGetValue(serverName, out var conn);
             return conn;
-        }
-
-        /// <summary>
-        /// Walks OE root nodes to find the URN-style server name that matches
-        /// the given logical server name. SSMS strips Azure SQL domain suffixes in URNs
-        /// (e.g. "foo.database.windows.net" → "foo"), and for on-prem the logical name
-        /// used in the SqlPilot index (raw IP address or "HOST\INSTANCE" syntax) may
-        /// not exactly match what OE stored in its URN. Always walk OE; fall back to
-        /// the logical name only if no matching root node is found.
-        /// </summary>
-        public string ResolveUrnServerName(string logicalServerName)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            foreach (var rootServer in GetRootUrnServerNames())
-                if (IsPrefixMatch(logicalServerName, rootServer)) return rootServer;
-
-            return logicalServerName;
         }
 
         /// <summary>

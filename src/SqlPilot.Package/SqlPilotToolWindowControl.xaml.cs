@@ -62,8 +62,9 @@ namespace SqlPilot.Package
         /// <summary>
         /// Rebuild the whole index. Single-flight: a refresh starts by clearing the index,
         /// so two overlapping runs would wipe each other's work. A request that arrives
-        /// mid-run (the watcher spotting another server) is
-        /// remembered and served by one more run afterwards. UI thread only.
+        /// mid-run (the watcher spotting another server, or a Refresh click after a scope
+        /// toggle that finished mid-run re-enabled the button) is remembered and served by
+        /// one more run afterwards. UI thread only.
         /// </summary>
         public async Task RefreshIndexAsync()
         {
