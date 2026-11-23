@@ -7,11 +7,17 @@
   <SolidColorBrush x:Key="StatusBarBackground" Color="#252526" />
   <SolidColorBrush x:Key="BadgeBackground" Color="#3E3E42" />
 
+  <!-- Search box -->
+  <SolidColorBrush x:Key="InputBackground" Color="#333337" />
+  <SolidColorBrush x:Key="InputForeground" Color="#F1F1F1" />
+  <SolidColorBrush x:Key="InputBorder" Color="#434346" />
+
   <!-- Foregrounds -->
   <SolidColorBrush x:Key="PrimaryForeground" Color="#E0E0E0" />
   <SolidColorBrush x:Key="SecondaryForeground" Color="#9E9E9E" />
   <SolidColorBrush x:Key="IconForeground" Color="#64B5F6" />
   <SolidColorBrush x:Key="BadgeForeground" Color="#B0BEC5" />
+  <SolidColorBrush x:Key="FavoriteForeground" Color="Gold" />
   <SolidColorBrush x:Key="HighlightForeground" Color="#FFAB40" />
 
 </ResourceDictionary>

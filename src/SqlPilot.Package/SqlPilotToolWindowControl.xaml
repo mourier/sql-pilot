@@ -2,10 +2,91 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:SqlPilot.UI.Controls;assembly=SqlPilot.UI"
-             Focusable="True">
+             Focusable="True"
+             Background="{DynamicResource ResultsBackground}"
+             Foreground="{DynamicResource PrimaryForeground}">
 
+  <!-- Every colour here is one of SQL Pilot's own brush keys. SsmsThemeAdapter puts
+       them in this control's Resources from the SSMS theme, so nothing in this file
+       names a Windows system colour or a fixed one. -->
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+    <!-- The stock button templates hard-code their hover and pressed colours, which
+         leaves light text on a light-blue button in a dark theme. -->
+    <ControlTemplate x:Key="ThemedButtonTemplate" TargetType="ButtonBase">
+      <Border x:Name="Bd"
+              Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding BorderBrush}"
+              BorderThickness="{TemplateBinding BorderThickness}"
+              SnapsToDevicePixels="True">
+        <ContentPresenter Margin="{TemplateBinding Padding}"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          RecognizesAccessKey="True" />
+      </Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="ToggleButton.IsChecked" Value="True">
+          <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ButtonPressedBackground}" />
+          <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ButtonPressedBorder}" />
+          <Setter Property="Foreground" Value="{DynamicResource ButtonPressedForeground}" />
+        </Trigger>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ButtonHoverBackground}" />
+          <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}" />
+          <Setter Property="Foreground" Value="{DynamicResource ButtonHoverForeground}" />
+        </Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True">
+          <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ButtonHoverBorder}" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ButtonPressedBackground}" />
+          <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ButtonPressedBorder}" />
+          <Setter Property="Foreground" Value="{DynamicResource ButtonPressedForeground}" />
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Foreground" Value="{DynamicResource ButtonDisabledForeground}" />
+        </Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style x:Key="ThemedButtonBase" TargetType="ButtonBase">
+      <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Template" Value="{StaticResource ThemedButtonTemplate}" />
+    </Style>
+    <Style TargetType="Button" BasedOn="{StaticResource ThemedButtonBase}" />
+    <Style TargetType="ToggleButton" BasedOn="{StaticResource ThemedButtonBase}" />
+
+    <!-- TreeView sets its own Foreground, so the scope tree would not inherit ours. -->
+    <Style TargetType="TreeView">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryForeground}" />
+    </Style>
+
+    <Style TargetType="ContextMenu">
+      <Setter Property="Background" Value="{DynamicResource MenuBackground}" />
+      <Setter Property="Foreground" Value="{DynamicResource MenuForeground}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource MenuBorder}" />
+      <!-- The stock template paints a fixed light icon gutter down the left side. -->
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ContextMenu">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="1"
+                    Padding="2"
+                    SnapsToDevicePixels="True">
+              <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="MenuItem">
+      <Setter Property="Foreground" Value="{DynamicResource MenuForeground}" />
+    </Style>
   </UserControl.Resources>
 
   <Grid>
@@ -19,7 +100,9 @@
     <!-- Update notification bar (hidden by default) -->
     <Border x:Name="UpdateBar"
             Grid.Row="0"
-            Background="#0078D4"
+            Background="{DynamicResource InfoBarBackground}"
+            BorderBrush="{DynamicResource InfoBarBorder}"
+            BorderThickness="0,0,0,1"
             Padding="8,4"
             Visibility="Collapsed">
       <Grid>
@@ -30,7 +113,7 @@
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="UpdateText"
                    Grid.Column="0"
-                   Foreground="White"
+                   Foreground="{DynamicResource InfoBarForeground}"
                    VerticalAlignment="Center"
                    Text="A new version of SQL Pilot is available." />
         <Button x:Name="DownloadButton"
@@ -48,7 +131,7 @@
     </Border>
 
     <!-- Refresh / status bar -->
-    <Border Grid.Row="1" Padding="4,2" Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+    <Border Grid.Row="1" Padding="4,2" Background="{DynamicResource StatusBarBackground}">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
@@ -56,7 +139,7 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="IndexStatus" Grid.Column="0" FontSize="11"
-                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                   Foreground="{DynamicResource SecondaryForeground}"
                    VerticalAlignment="Center" Text="Not indexed. Connect to a server to start." />
         <ToggleButton x:Name="ScopeButton" Grid.Column="1" Padding="6,2"
                       Margin="0,0,4,0"
@@ -76,8 +159,8 @@
     <Border x:Name="ScopePanel" Grid.Row="2"
             Visibility="{Binding IsChecked, ElementName=ScopeButton, Converter={StaticResource BoolToVis}}"
             Padding="4,2" BorderThickness="0,0,0,1"
-            BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
-            Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+            BorderBrush="{DynamicResource PanelBorder}"
+            Background="{DynamicResource StatusBarBackground}">
       <controls:ScopeControl x:Name="ScopePanelContent" />
     </Border>
 

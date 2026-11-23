@@ -23,6 +23,7 @@
     <Compile Include="..\SqlPilot.Package\Integration\ScriptingBridge.cs" Link="Integration\ScriptingBridge.cs" />
     <Compile Include="..\SqlPilot.Package\Integration\ManagedConnectionWrapper.cs" Link="Integration\ManagedConnectionWrapper.cs" />
     <Compile Include="..\SqlPilot.Package\Integration\ReflectionTypeCache.cs" Link="Integration\ReflectionTypeCache.cs" />
+    <Compile Include="..\SqlPilot.Package\Integration\SsmsThemeAdapter.cs" Link="Integration\SsmsThemeAdapter.cs" />
     <Compile Include="..\SqlPilot.Package\Options\SqlPilotOptionsPage.cs" Link="Options\SqlPilotOptionsPage.cs" />
     <Compile Include="..\SqlPilot.Package\Services\UpdateChecker.cs" Link="Services\UpdateChecker.cs" />
     <Compile Include="..\SqlPilot.Package\Services\ConnectionWatcher.cs" Link="Services\ConnectionWatcher.cs" />
