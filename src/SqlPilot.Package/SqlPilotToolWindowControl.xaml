@@ -140,7 +140,8 @@
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="IndexStatus" Grid.Column="0" FontSize="11"
                    Foreground="{DynamicResource SecondaryForeground}"
-                   VerticalAlignment="Center" Text="Not indexed. Connect to a server to start." />
+                   VerticalAlignment="Center" Text="Not indexed. Connect to a server to start."
+                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
         <ToggleButton x:Name="ScopeButton" Grid.Column="1" Padding="6,2"
                       Margin="0,0,4,0"
                       AutomationProperties.Name="Scope"

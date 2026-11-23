@@ -28,8 +28,6 @@ namespace SqlPilot.Package.Integration
 
         private void OnThemeChanged(ThemeChangedEventArgs e)
         {
-            if (_disposed) return;
-
             if (_target.Dispatcher.CheckAccess())
                 Apply();
             else
@@ -41,46 +39,45 @@ namespace SqlPilot.Package.Integration
             if (_disposed) return;
 
             var r = _target.Resources;
+            void Set(string key, ThemeResourceKey themeKey, Color fallback) => r[key] = Brush(Themed(themeKey, fallback));
 
             // Surfaces and text
             Color background = Themed(EnvironmentColors.ToolWindowBackgroundColorKey, SystemColors.WindowColor);
-            r["ResultsBackground"] = Brush(background);
-            r["SearchBoxBackground"] = Brush(background);
-            r["StatusBarBackground"] = Brush(background);
-            r["PanelBorder"] = Brush(Themed(EnvironmentColors.ToolWindowBorderColorKey, SystemColors.ControlDarkColor));
-            r["PrimaryForeground"] = Brush(Themed(EnvironmentColors.ToolWindowTextColorKey, SystemColors.WindowTextColor));
-            r["SecondaryForeground"] = Brush(Themed(EnvironmentColors.SystemGrayTextColorKey, SystemColors.GrayTextColor));
-            r["IconForeground"] = Brush(Themed(EnvironmentColors.PanelHyperlinkColorKey, SystemColors.HotTrackColor));
+            r["ResultsBackground"] = r["SearchBoxBackground"] = r["StatusBarBackground"] = Brush(background);
+            Set("PanelBorder", EnvironmentColors.ToolWindowBorderColorKey, SystemColors.ControlDarkColor);
+            Set("PrimaryForeground", EnvironmentColors.ToolWindowTextColorKey, SystemColors.WindowTextColor);
+            Set("SecondaryForeground", EnvironmentColors.SystemGrayTextColorKey, SystemColors.GrayTextColor);
+            Set("IconForeground", EnvironmentColors.PanelHyperlinkColorKey, SystemColors.HotTrackColor);
 
             // Gold reads well on a dark surface and washes out on a light one.
             r["FavoriteForeground"] = Brush(IsDark(background) ? Colors.Gold : Colors.DarkGoldenrod);
 
             // Search box
-            r["InputBackground"] = Brush(Themed(CommonControlsColors.TextBoxBackgroundColorKey, SystemColors.WindowColor));
-            r["InputForeground"] = Brush(Themed(CommonControlsColors.TextBoxTextColorKey, SystemColors.WindowTextColor));
-            r["InputBorder"] = Brush(Themed(CommonControlsColors.TextBoxBorderColorKey, SystemColors.ControlDarkColor));
+            Set("InputBackground", CommonControlsColors.TextBoxBackgroundColorKey, SystemColors.WindowColor);
+            Set("InputForeground", CommonControlsColors.TextBoxTextColorKey, SystemColors.WindowTextColor);
+            Set("InputBorder", CommonControlsColors.TextBoxBorderColorKey, SystemColors.ControlDarkColor);
 
             // Buttons
-            r["ButtonBackground"] = Brush(Themed(CommonControlsColors.ButtonColorKey, SystemColors.ControlColor));
-            r["ButtonForeground"] = Brush(Themed(CommonControlsColors.ButtonTextColorKey, SystemColors.ControlTextColor));
-            r["ButtonBorder"] = Brush(Themed(CommonControlsColors.ButtonBorderColorKey, SystemColors.ControlDarkColor));
-            r["ButtonHoverBackground"] = Brush(Themed(CommonControlsColors.ButtonHoverColorKey, SystemColors.ControlLightColor));
-            r["ButtonHoverForeground"] = Brush(Themed(CommonControlsColors.ButtonHoverTextColorKey, SystemColors.ControlTextColor));
-            r["ButtonHoverBorder"] = Brush(Themed(CommonControlsColors.ButtonBorderHoverColorKey, SystemColors.HighlightColor));
-            r["ButtonPressedBackground"] = Brush(Themed(CommonControlsColors.ButtonPressedColorKey, SystemColors.ControlDarkColor));
-            r["ButtonPressedForeground"] = Brush(Themed(CommonControlsColors.ButtonPressedTextColorKey, SystemColors.ControlTextColor));
-            r["ButtonPressedBorder"] = Brush(Themed(CommonControlsColors.ButtonBorderPressedColorKey, SystemColors.HighlightColor));
-            r["ButtonDisabledForeground"] = Brush(Themed(CommonControlsColors.ButtonDisabledTextColorKey, SystemColors.GrayTextColor));
+            Set("ButtonBackground", CommonControlsColors.ButtonColorKey, SystemColors.ControlColor);
+            Set("ButtonForeground", CommonControlsColors.ButtonTextColorKey, SystemColors.ControlTextColor);
+            Set("ButtonBorder", CommonControlsColors.ButtonBorderColorKey, SystemColors.ControlDarkColor);
+            Set("ButtonHoverBackground", CommonControlsColors.ButtonHoverColorKey, SystemColors.ControlLightColor);
+            Set("ButtonHoverForeground", CommonControlsColors.ButtonHoverTextColorKey, SystemColors.ControlTextColor);
+            Set("ButtonHoverBorder", CommonControlsColors.ButtonBorderHoverColorKey, SystemColors.HighlightColor);
+            Set("ButtonPressedBackground", CommonControlsColors.ButtonPressedColorKey, SystemColors.ControlDarkColor);
+            Set("ButtonPressedForeground", CommonControlsColors.ButtonPressedTextColorKey, SystemColors.ControlTextColor);
+            Set("ButtonPressedBorder", CommonControlsColors.ButtonBorderPressedColorKey, SystemColors.HighlightColor);
+            Set("ButtonDisabledForeground", CommonControlsColors.ButtonDisabledTextColorKey, SystemColors.GrayTextColor);
 
             // Context menu
-            r["MenuBackground"] = Brush(Themed(EnvironmentColors.CommandBarMenuBackgroundGradientBeginColorKey, SystemColors.MenuColor));
-            r["MenuForeground"] = Brush(Themed(EnvironmentColors.CommandBarTextActiveColorKey, SystemColors.MenuTextColor));
-            r["MenuBorder"] = Brush(Themed(EnvironmentColors.CommandBarMenuBorderColorKey, SystemColors.ControlDarkColor));
+            Set("MenuBackground", EnvironmentColors.CommandBarMenuBackgroundGradientBeginColorKey, SystemColors.MenuColor);
+            Set("MenuForeground", EnvironmentColors.CommandBarTextActiveColorKey, SystemColors.MenuTextColor);
+            Set("MenuBorder", EnvironmentColors.CommandBarMenuBorderColorKey, SystemColors.ControlDarkColor);
 
             // Update notification bar
-            r["InfoBarBackground"] = Brush(Themed(InfoBarColors.InfoBarBackgroundColorKey, SystemColors.InfoColor));
-            r["InfoBarForeground"] = Brush(Themed(InfoBarColors.InfoBarBackgroundTextColorKey, SystemColors.InfoTextColor));
-            r["InfoBarBorder"] = Brush(Themed(InfoBarColors.InfoBarBorderColorKey, SystemColors.ControlDarkColor));
+            Set("InfoBarBackground", InfoBarColors.InfoBarBackgroundColorKey, SystemColors.InfoColor);
+            Set("InfoBarForeground", InfoBarColors.InfoBarBackgroundTextColorKey, SystemColors.InfoTextColor);
+            Set("InfoBarBorder", InfoBarColors.InfoBarBorderColorKey, SystemColors.ControlDarkColor);
 
             // The shell's own scroll bar style, when it publishes one. It is built on
             // theme brushes itself, so it only needs putting in place once.
