@@ -75,37 +75,91 @@ namespace SqlPilot.Package.Integration
             ThreadHelper.ThrowIfNotOnUIThread();
 
             var results = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // Tree IS the TreeView (ObjectExplorerControl derives from it) -- it has no
-            // child controls, so searching its Controls for one finds nothing.
-            if (GetObjectExplorerControl() is TreeView treeView)
-            {
-                var nodeInfoType = ReflectionTypeCache.FindType(NodeInformationTypeName);
-
-                foreach (TreeNode root in treeView.Nodes)
-                {
-                    // A root we can't read a connection from is skipped rather than
-                    // listed by its node text: with no connection it could only be
-                    // indexed as an empty server.
-                    string serverName = TryGetServerFromRootNode(root, nodeInfoType);
-                    if (!string.IsNullOrEmpty(serverName) && !ContainsServer(results, serverName))
-                        results.Add(serverName);
-                }
-            }
+            // A root we can't read a connection from is skipped rather than listed by
+            // its node text: with no connection it could only be indexed as an empty server.
+            foreach (var nodeInfo in GetRootNodeInfos())
+                AddServer(nodeInfo, results, seen);
 
             // Last resort: only sees the nodes the user has selected.
             if (results.Count == 0)
-                TryGetFromSelectedNodes(results);
+                TryGetFromSelectedNodes(results, seen);
 
             return results;
         }
 
-        private static bool ContainsServer(List<string> servers, string serverName)
+        private void AddServer(object nodeInfo, List<string> results, HashSet<string> seen)
         {
-            foreach (var s in servers)
-                if (string.Equals(s, serverName, StringComparison.OrdinalIgnoreCase)) return true;
-            return false;
+            try
+            {
+                string serverName = ExtractConnectionFromNodeInfo(nodeInfo);
+                if (!string.IsNullOrEmpty(serverName) && seen.Add(serverName))
+                    results.Add(serverName);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"SqlPilot: node connection error: {ex.Message}");
+            }
         }
+
+        /// <summary>
+        /// The INodeInformation of every root node in Object Explorer -- one per connected
+        /// server. Empty when the tree or the type can't be reached.
+        /// </summary>
+        private List<object> GetRootNodeInfos()
+        {
+            var infos = new List<object>();
+
+            // Tree IS the TreeView (ObjectExplorerControl derives from it) -- it has no
+            // child controls, so searching its Controls for one finds nothing.
+            if (!(GetObjectExplorerControl() is TreeView treeView)) return infos;
+
+            var nodeInfoType = ReflectionTypeCache.FindType(NodeInformationTypeName);
+            if (nodeInfoType == null) return infos;
+
+            foreach (TreeNode root in treeView.Nodes)
+            {
+                try
+                {
+                    // OE tree nodes hand out their INodeInformation as a service.
+                    var nodeInfo = (root as IServiceProvider)?.GetService(nodeInfoType);
+                    if (nodeInfo != null) infos.Add(nodeInfo);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"SqlPilot: root node error: {ex.Message}");
+                }
+            }
+
+            return infos;
+        }
+
+        /// <summary>
+        /// The server name each Database Engine root carries in its URN context
+        /// (<c>Server[@Name='...']</c>), in tree order.
+        /// </summary>
+        private List<string> GetRootUrnServerNames()
+        {
+            const string prefix = "Server[@Name='";
+            var names = new List<string>();
+
+            foreach (var nodeInfo in GetRootNodeInfos())
+            {
+                var ctx = nodeInfo.GetType().GetProperty("Context")?.GetValue(nodeInfo)?.ToString();
+                if (string.IsNullOrEmpty(ctx) || !ctx.StartsWith(prefix)) continue;
+
+                int end = ctx.IndexOf('\'', prefix.Length);
+                if (end > prefix.Length)
+                    names.Add(ctx.Substring(prefix.Length, end - prefix.Length));
+            }
+
+            return names;
+        }
+
+        private static bool IsPrefixMatch(string a, string b)
+            => a.StartsWith(b, StringComparison.OrdinalIgnoreCase)
+               || b.StartsWith(a, StringComparison.OrdinalIgnoreCase);
 
         public ConnectionDescriptor GetConnectionInfo(string serverName)
         {
@@ -125,34 +179,8 @@ namespace SqlPilot.Package.Integration
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            var oes = GetObjectExplorerService();
-            if (oes == null) return logicalServerName;
-
-            var oeControl = GetObjectExplorerControl();
-            if (!(oeControl is TreeView treeView)) return logicalServerName;
-
-            var inodeInfoType = ReflectionTypeCache.FindType(NodeInformationTypeName);
-            if (inodeInfoType == null) return logicalServerName;
-
-            foreach (TreeNode root in treeView.Nodes)
-            {
-                if (!(root is IServiceProvider sp)) continue;
-
-                var rootNodeInfo = sp.GetService(inodeInfoType);
-                var ctx = rootNodeInfo?.GetType().GetProperty("Context")?.GetValue(rootNodeInfo)?.ToString();
-                if (string.IsNullOrEmpty(ctx) || !ctx.StartsWith("Server[@Name='")) continue;
-
-                int start = "Server[@Name='".Length;
-                int end = ctx.IndexOf('\'', start);
-                if (end <= start) continue;
-
-                string rootServer = ctx.Substring(start, end - start);
-                if (logicalServerName.StartsWith(rootServer, StringComparison.OrdinalIgnoreCase)
-                    || rootServer.StartsWith(logicalServerName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return rootServer;
-                }
-            }
+            foreach (var rootServer in GetRootUrnServerNames())
+                if (IsPrefixMatch(logicalServerName, rootServer)) return rootServer;
 
             return logicalServerName;
         }
@@ -170,38 +198,14 @@ namespace SqlPilot.Package.Integration
             ThreadHelper.ThrowIfNotOnUIThread();
 
             var candidates = new System.Collections.Generic.List<string>();
-            var oes = GetObjectExplorerService();
-            if (oes == null) { candidates.Add(logicalServerName); return candidates; }
-
-            var oeControl = GetObjectExplorerControl();
-            if (!(oeControl is TreeView treeView)) { candidates.Add(logicalServerName); return candidates; }
-
-            var inodeInfoType = ReflectionTypeCache.FindType(NodeInformationTypeName);
-            if (inodeInfoType == null) { candidates.Add(logicalServerName); return candidates; }
 
             string bestMatch = null;
-            foreach (TreeNode root in treeView.Nodes)
+            foreach (var rootServer in GetRootUrnServerNames())
             {
-                if (!(root is IServiceProvider sp)) continue;
-                var rootNodeInfo = sp.GetService(inodeInfoType);
-                var ctx = rootNodeInfo?.GetType().GetProperty("Context")?.GetValue(rootNodeInfo)?.ToString();
-                if (string.IsNullOrEmpty(ctx) || !ctx.StartsWith("Server[@Name='")) continue;
-
-                int start = "Server[@Name='".Length;
-                int end = ctx.IndexOf('\'', start);
-                if (end <= start) continue;
-
-                string rootServer = ctx.Substring(start, end - start);
-                if (bestMatch == null &&
-                    (logicalServerName.StartsWith(rootServer, StringComparison.OrdinalIgnoreCase)
-                     || rootServer.StartsWith(logicalServerName, StringComparison.OrdinalIgnoreCase)))
-                {
+                if (bestMatch == null && IsPrefixMatch(logicalServerName, rootServer))
                     bestMatch = rootServer;
-                }
                 else
-                {
                     candidates.Add(rootServer);
-                }
             }
 
             if (bestMatch != null) candidates.Insert(0, bestMatch);
@@ -213,24 +217,7 @@ namespace SqlPilot.Package.Integration
             return candidates;
         }
 
-        private string TryGetServerFromRootNode(TreeNode root, Type nodeInfoType)
-        {
-            try
-            {
-                // OE tree nodes hand out their INodeInformation as a service.
-                if (nodeInfoType == null || !(root is IServiceProvider sp)) return null;
-
-                var nodeInfo = sp.GetService(nodeInfoType);
-                return nodeInfo == null ? null : ExtractConnectionFromNodeInfo(nodeInfo);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"SqlPilot: root node connection error: {ex.Message}");
-                return null;
-            }
-        }
-
-        private void TryGetFromSelectedNodes(List<string> results)
+        private void TryGetFromSelectedNodes(List<string> results, HashSet<string> seen)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
@@ -249,11 +236,7 @@ namespace SqlPilot.Package.Integration
                 if (nodes == null) return;
 
                 foreach (var node in nodes)
-                {
-                    var name = ExtractConnectionFromNodeInfo(node);
-                    if (!string.IsNullOrEmpty(name))
-                        results.Add(name);
-                }
+                    if (node != null) AddServer(node, results, seen);
             }
             catch (Exception ex)
             {

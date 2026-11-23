@@ -62,7 +62,7 @@ namespace SqlPilot.Package
         /// <summary>
         /// Rebuild the whole index. Single-flight: a refresh starts by clearing the index,
         /// so two overlapping runs would wipe each other's work. A request that arrives
-        /// mid-run (the watcher spotting another server, a second Refresh click) is
+        /// mid-run (the watcher spotting another server) is
         /// remembered and served by one more run afterwards. UI thread only.
         /// </summary>
         public async Task RefreshIndexAsync()
@@ -129,8 +129,6 @@ namespace SqlPilot.Package
                 if (failures.Count > 0)
                     status += $" Could not index {string.Join("; ", failures)}";
                 IndexStatus.Text = status;
-                // The status line is one unwrapped row; the tooltip keeps a long error readable.
-                IndexStatus.ToolTip = failures.Count > 0 ? status : null;
 
                 // Re-run any pending search now that the index is populated
                 ViewModel.Rerun();
