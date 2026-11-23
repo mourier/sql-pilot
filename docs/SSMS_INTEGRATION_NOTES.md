@@ -63,6 +63,8 @@ This is `ObjectExplorerBridge.GetConnectedServerNames`. Verified on SSMS 18, 20 
 
 A refresh rebuilds the whole index and starts by clearing it, so `RefreshIndexAsync` is single-flight: a request arriving mid-run is queued and served by one more run. `ConnectionWatcher` likewise raises one event per poll, not one per new server.
 
+Each server is indexed inside its own `try`/`catch`. Indexing opens a fresh SMO connection per server, and that can fail for one server while Object Explorer still lists it (login disabled, instance stopped). Because the index was just cleared, an exception escaping the loop would leave every later server unsearchable; instead the failed server is named after the totals in `IndexStatus` (and in its tooltip, since the status line is a single unwrapped row). To reproduce: connect a SQL-login server and another server after it, `ALTER LOGIN ... DISABLE` and `KILL` its sessions from a different connection, press Refresh.
+
 The connection extracted from a node's `Connection` property is a `SqlConnectionInfoWithConnection` — it has a live, already-authenticated connection. Never try to construct a new connection from parts; reuse this one.
 
 ## Scripting Bridge (actions on objects)
@@ -270,6 +272,8 @@ if (!_connection.UseIntegratedSecurity)
 ```
 
 Do NOT try to sanitize the connection string with regex — new keywords may appear in future SSMS versions.
+
+**Known issue, SSMS 20 only:** the default action on a stored procedure opens `-- Could not retrieve definition for ...` instead of the ALTER script. It happens with a single server connected, on v1.2.0 as well as later builds, and SSMS 18 and 22 script the same procedure fine. `ScriptingBridge.GetServer` still builds its SMO connection from the connection string, so the keyword problem above is the likely cause, but that has not been confirmed.
 
 ## Azure SQL constraints
 
