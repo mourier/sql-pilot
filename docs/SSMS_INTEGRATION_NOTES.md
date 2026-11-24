@@ -257,7 +257,7 @@ Safer: use reflection for anything version-specific like `fn.FunctionType.ToStri
 Keyword not supported: 'multiple active result sets'.
 ```
 
-The valid ADO.NET keyword is `MultipleActiveResultSets` (no spaces) but SSMS 20 writes it with spaces. SSMS 18 and 22 don't include this keyword in their connection strings at all, so the problem only surfaces on 20.
+The valid ADO.NET keyword is `MultipleActiveResultSets` (no spaces) but SSMS 20 writes it with spaces. SSMS 18 writes it without spaces. SSMS 22 writes it with spaces too, but its SMO accepts it, so the problem only surfaces on 20 (see *SSMS 20 loads two SMO versions* below).
 
 **Fix** in `SmoDatabaseObjectProvider.CreateServer`: prefer the individual properties (`ServerInstance`, `Login`, `Password`) when constructing `ServerConnection`, and fall back to the raw connection string only if those aren't available:
 
@@ -275,7 +275,25 @@ if (!_connection.UseIntegratedSecurity)
 
 Do NOT try to sanitize the connection string with regex — new keywords may appear in future SSMS versions.
 
-**Known issue, SSMS 20 only:** the default action on a stored procedure opens `-- Could not retrieve definition for ...` instead of the ALTER script. It happens with a single server connected, on v1.2.0 as well as later builds, and SSMS 18 and 22 script the same procedure fine. `ScriptingBridge.GetServer` still builds its SMO connection from the connection string, so the keyword problem above is the likely cause, but that has not been confirmed.
+### SSMS 20 loads two SMO versions
+
+The Legacy build references SMO 16.100. SSMS 20's own SMO is 17.100, but it also ships 16.100 for SSIS (`Common7\IDE\CommonExtensions\Microsoft\SSIS\160\Binn\150References\SMO`), and SQL Pilot binds to that copy. Both are loaded in the one process:
+
+| | Object Explorer | SQL Pilot |
+|---|---|---|
+| SMO | 17.100 | 16.100 |
+| Driver | `Microsoft.Data.SqlClient` | `System.Data.SqlClient` |
+
+On SSMS 18 and 22 the SMO that SQL Pilot is built against is the one SSMS itself uses, so the string stays with one driver.
+
+This was the "`-- Could not retrieve definition for ...` instead of the ALTER script" bug (issue #15). `ScriptingBridge.GetServer` dropped the keywords `System.Data.SqlClient` rejects, `Trust Server Certificate` among them, but kept `Encrypt=True`. The connection then failed, against LocalDB with *"The instance of SQL Server you attempted to connect to does not support encryption"*, and `GetModuleScript` swallowed the exception. Translating the trust keyword is not enough: SMO 16 cannot open an encrypted connection to LocalDB at all. `GetServer` now uses the connection string only when Object Explorer's connection is an instance of our own `SqlConnectionInfo`, and the individual properties otherwise.
+
+Consequences:
+
+- The properties path does not request encryption (nor does indexing), whatever the Connect dialog said. A server that forces encryption still gets it.
+- Any cast of an Object Explorer object to an SMO type (`RawConnectionInfo as SqlOlapConnectionInfoBase`) should be null on SSMS 20; `DesignTable` relies on one and has not been checked there.
+
+To see a swallowed exception in a Release build, trace the CLR with ETW: `logman start x -p "{e13c0d23-ccbc-4e12-931b-d9cc2eee27e4}" 0x8000 2 -o x.etl -ets` (needs Performance Log Users), then read event 80 with `Get-WinEvent -Path x.etl -Oldest`. Keyword `0x8` level 4 lists assembly loads with their paths.
 
 ## Azure SQL constraints
 

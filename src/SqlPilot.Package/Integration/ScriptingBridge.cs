@@ -27,9 +27,28 @@ namespace SqlPilot.Package.Integration
         private Server GetServer(DatabaseObject obj)
         {
             var connInfo = _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName);
-            if (connInfo?.ConnectionString == null) return null;
+            if (connInfo == null) return null;
             var serverConn = new ServerConnection();
-            serverConn.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
+
+            if (connInfo.RawConnectionInfo is SqlConnectionInfo)
+            {
+                if (connInfo.ConnectionString == null) return null;
+                serverConn.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
+            }
+            else
+            {
+                // SSMS's connection comes from a different SMO than ours (SSMS 20: 17 vs 16),
+                // so its connection string is for another SqlClient. Build from properties,
+                // as indexing does. See "SSMS 20 loads two SMO versions" in the notes.
+                serverConn.ServerInstance = connInfo.ServerName;
+                if (!connInfo.UseIntegratedSecurity)
+                {
+                    serverConn.LoginSecure = false;
+                    serverConn.Login = connInfo.UserName ?? "";
+                    serverConn.Password = connInfo.Password ?? "";
+                }
+            }
+
             serverConn.TrustServerCertificate = true;
             return new Server(serverConn);
         }
