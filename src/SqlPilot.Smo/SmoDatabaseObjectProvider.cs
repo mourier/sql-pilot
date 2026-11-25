@@ -24,20 +24,7 @@ namespace SqlPilot.Smo
             // between SSMS versions (e.g. SSMS 20's "Multiple Active Result Sets" with spaces
             // isn't valid for SMO's older ServerConnection parser).
             if (!string.IsNullOrEmpty(_connection.ServerName))
-            {
-                var serverConn = new ServerConnection();
-                serverConn.ServerInstance = _connection.ServerName;
-                serverConn.TrustServerCertificate = true;
-
-                if (!_connection.UseIntegratedSecurity)
-                {
-                    serverConn.LoginSecure = false;
-                    serverConn.Login = _connection.UserName ?? "";
-                    serverConn.Password = _connection.Password ?? "";
-                }
-
-                return new Server(serverConn);
-            }
+                return new Server(CreateServerConnection(_connection));
 
             // Last resort: use the raw connection string (may fail on SSMS 20)
             if (!string.IsNullOrEmpty(_connection.ConnectionString))
@@ -49,6 +36,26 @@ namespace SqlPilot.Smo
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Builds a connection from the descriptor's server name and login, trusting the
+        /// server certificate. Shared by indexing and by scripting on SSMS 20.
+        /// </summary>
+        public static ServerConnection CreateServerConnection(ConnectionDescriptor connection)
+        {
+            var serverConn = new ServerConnection();
+            serverConn.ServerInstance = connection.ServerName;
+            serverConn.TrustServerCertificate = true;
+
+            if (!connection.UseIntegratedSecurity)
+            {
+                serverConn.LoginSecure = false;
+                serverConn.Login = connection.UserName ?? "";
+                serverConn.Password = connection.Password ?? "";
+            }
+
+            return serverConn;
         }
 
         public Task<IReadOnlyList<DatabaseObject>> GetObjectsAsync(

@@ -23,5 +23,16 @@ namespace SqlPilot.Core.Database
             return !string.IsNullOrEmpty(serverName)
                 && serverName.IndexOf(".database.windows.net", StringComparison.OrdinalIgnoreCase) >= 0;
         }
+
+        /// <summary>
+        /// True for a LocalDB instance name or its pipe name, with or without "np:".
+        /// LocalDB reached through an alias is not recognised.
+        /// </summary>
+        public static bool IsLocalDbServerName(string serverName)
+        {
+            return !string.IsNullOrEmpty(serverName)
+                && (serverName.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)
+                    || serverName.IndexOf(@"\pipe\LOCALDB#", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
     }
 }

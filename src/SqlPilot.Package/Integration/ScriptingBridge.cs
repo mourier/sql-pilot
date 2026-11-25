@@ -28,30 +28,23 @@ namespace SqlPilot.Package.Integration
         {
             var connInfo = _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName);
             if (connInfo == null) return null;
-            var serverConn = new ServerConnection();
 
             if (connInfo.RawConnectionInfo is SqlConnectionInfo)
             {
                 if (connInfo.ConnectionString == null) return null;
-                serverConn.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
-            }
-            else
-            {
-                // SSMS's connection comes from a different SMO than ours (SSMS 20: 17 vs 16),
-                // so its connection string is for another SqlClient. Build from properties,
-                // as indexing does. See "SSMS 20 loads two SMO versions" in the notes.
-                serverConn.ServerInstance = connInfo.ServerName;
-                serverConn.EncryptConnection = RequestsEncryption(connInfo.ConnectionString)
-                    && !IsLocalDb(connInfo.ServerName);
-                if (!connInfo.UseIntegratedSecurity)
-                {
-                    serverConn.LoginSecure = false;
-                    serverConn.Login = connInfo.UserName ?? "";
-                    serverConn.Password = connInfo.Password ?? "";
-                }
+                var fromString = new ServerConnection();
+                fromString.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
+                fromString.TrustServerCertificate = true;
+                return new Server(fromString);
             }
 
-            serverConn.TrustServerCertificate = true;
+            // SSMS's connection comes from a different SMO than ours (SSMS 20: 17 vs 16),
+            // so its connection string is for another SqlClient. Build from properties,
+            // as indexing does. See "SSMS 20 loads two SMO versions" in the notes.
+            // SMO 16 cannot open an encrypted connection to LocalDB, which never leaves the machine.
+            var serverConn = SqlPilot.Smo.SmoDatabaseObjectProvider.CreateServerConnection(connInfo);
+            serverConn.EncryptConnection = RequestsEncryption(connInfo.ConnectionString)
+                && !ConnectionDescriptor.IsLocalDbServerName(connInfo.ServerName);
             return new Server(serverConn);
         }
 
@@ -62,7 +55,6 @@ namespace SqlPilot.Package.Integration
         /// </summary>
         private static bool RequestsEncryption(string connStr)
         {
-            if (string.IsNullOrEmpty(connStr)) return true;
             var builder = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = connStr };
             if (!builder.TryGetValue("Encrypt", out var value)) return true;
             var text = value.ToString();
@@ -71,21 +63,12 @@ namespace SqlPilot.Package.Integration
                 && !text.Equals("Optional", StringComparison.OrdinalIgnoreCase);
         }
 
-        // SMO 16 cannot open an encrypted connection to LocalDB, which never leaves the machine.
-        // Matches the instance name and the pipe name, with or without "np:". An alias is not recognised.
-        private static bool IsLocalDb(string serverName)
-        {
-            return serverName.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)
-                || serverName.IndexOf(@"\pipe\LOCALDB#", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
         /// <summary>
         /// Drops every keyword segment that
         /// <see cref="System.Data.SqlClient.SqlConnectionStringBuilder"/> doesn't
-        /// recognise (e.g. "multiple active result sets" with spaces). It was written
-        /// for SSMS 20, which no longer comes through here; see <see cref="GetServer"/>.
-        /// On SSMS 22 it is leftover filtering, not a crash guard: SMO 18 accepts the
-        /// raw string, and this also drops settings its driver understands.
+        /// recognise (e.g. "multiple active result sets" with spaces). Only used when
+        /// SSMS shares our SMO (see <see cref="GetServer"/>); it can also drop settings
+        /// a newer driver understands.
         /// </summary>
         private static string SanitizeConnectionString(string connStr)
         {
