@@ -29,7 +29,7 @@ SQL Pilot is a Quick Search extension for SQL Server Management Studio (SSMS). I
 | 20   | 17.100.0.0  |
 | 22   | 18.100.0.0  |
 
-SMO is loaded from SSMS at runtime (not bundled). Set `<Private>false</Private>` on SMO references.
+SMO is loaded from SSMS at runtime (not bundled). On SSMS 20 the Legacy build binds to the 16.100 copy SSMS ships for SSIS, not its own 17.100 (see SSMS_INTEGRATION_NOTES.md § SSMS 20 loads two SMO versions). Set `<Private>false</Private>` on SMO references.
 
 ## Project Structure
 

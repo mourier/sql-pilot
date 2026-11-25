@@ -27,20 +27,48 @@ namespace SqlPilot.Package.Integration
         private Server GetServer(DatabaseObject obj)
         {
             var connInfo = _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName);
-            if (connInfo?.ConnectionString == null) return null;
-            var serverConn = new ServerConnection();
-            serverConn.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
-            serverConn.TrustServerCertificate = true;
+            if (connInfo == null) return null;
+
+            if (connInfo.RawConnectionInfo is SqlConnectionInfo)
+            {
+                if (connInfo.ConnectionString == null) return null;
+                var fromString = new ServerConnection();
+                fromString.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
+                fromString.TrustServerCertificate = true;
+                return new Server(fromString);
+            }
+
+            // SSMS's connection comes from a different SMO than ours (SSMS 20: 17 vs 16),
+            // so its connection string is for another SqlClient. Build from properties,
+            // as indexing does. See "SSMS 20 loads two SMO versions" in the notes.
+            // SMO 16 cannot open an encrypted connection to LocalDB, which never leaves the machine.
+            var serverConn = SqlPilot.Smo.SmoDatabaseObjectProvider.CreateServerConnection(connInfo);
+            serverConn.EncryptConnection = RequestsEncryption(connInfo.ConnectionString)
+                && !ConnectionDescriptor.IsLocalDbServerName(connInfo.ServerName);
             return new Server(serverConn);
         }
 
         /// <summary>
-        /// SSMS connection strings occasionally contain keywords that the underlying
+        /// Reads the Encrypt keyword without binding to either SqlClient's dialect.
+        /// Anything but an explicit "off" counts as a request for encryption, a missing
+        /// keyword included: the driver that wrote the string encrypts by default.
+        /// </summary>
+        private static bool RequestsEncryption(string connStr)
+        {
+            var builder = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = connStr };
+            if (!builder.TryGetValue("Encrypt", out var value)) return true;
+            var text = value.ToString();
+            return !text.Equals("False", StringComparison.OrdinalIgnoreCase)
+                && !text.Equals("No", StringComparison.OrdinalIgnoreCase)
+                && !text.Equals("Optional", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Drops every keyword segment that
         /// <see cref="System.Data.SqlClient.SqlConnectionStringBuilder"/> doesn't
-        /// recognise (e.g. SSMS 20 emits "multiple active result sets" with spaces,
-        /// which SqlClient rejects with <c>ArgumentException: Keyword not supported</c>
-        /// and takes the whole SMO call down with it). Parse each keyword segment
-        /// individually and drop anything the builder can't accept.
+        /// recognise (e.g. "multiple active result sets" with spaces). Only used when
+        /// SSMS shares our SMO (see <see cref="GetServer"/>); it can also drop settings
+        /// a newer driver understands.
         /// </summary>
         private static string SanitizeConnectionString(string connStr)
         {
