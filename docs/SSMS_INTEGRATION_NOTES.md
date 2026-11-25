@@ -67,7 +67,7 @@ Before this, only refreshes were guarded. The watcher can start a refresh while 
 
 Each server is indexed inside its own `try`/`catch`. Indexing opens a fresh SMO connection per server, and that can fail for one server while Object Explorer still lists it (login disabled, instance stopped). Because the index was just cleared, an exception escaping the loop would leave every later server unsearchable; instead the failed server is named after the totals in `IndexStatus` (and in its tooltip, since the status line is a single unwrapped row). To reproduce: connect a SQL-login server and another server after it, `ALTER LOGIN ... DISABLE` and `KILL` its sessions from a different connection, press Refresh.
 
-The connection extracted from a node's `Connection` property is a `SqlConnectionInfoWithConnection` — it has a live, already-authenticated connection. Never try to construct a new connection from parts; reuse this one.
+The connection extracted from a node's `Connection` property is a `SqlConnectionInfoWithConnection` — it has a live, already-authenticated connection. Never try to construct a new connection from parts to hand to SSMS's own APIs; reuse this one. (SQL Pilot's own SMO connections are built separately; see *SSMS 20 loads two SMO versions*.)
 
 ## Scripting Bridge (actions on objects)
 
@@ -284,13 +284,15 @@ The Legacy build references SMO 16.100. SSMS 20's own SMO is 17.100, but it also
 | SMO | 17.100 | 16.100 |
 | Driver | `Microsoft.Data.SqlClient` | `System.Data.SqlClient` |
 
-On SSMS 18 and 22 the SMO that SQL Pilot is built against is the one SSMS itself uses, so the string stays with one driver.
+On SSMS 18 and 22 the SMO that SQL Pilot is built against is the one SSMS itself uses, so the string is read by the driver family that wrote it. `SanitizeConnectionString` still runs there first, and on 22 it drops what `System.Data.SqlClient` does not know (the spaced keywords, `Trust Server Certificate`).
 
 This was the "`-- Could not retrieve definition for ...` instead of the ALTER script" bug (issue #15). `ScriptingBridge.GetServer` dropped the keywords `System.Data.SqlClient` rejects, `Trust Server Certificate` among them, but kept `Encrypt=True`. The connection then failed, against LocalDB with *"The instance of SQL Server you attempted to connect to does not support encryption"*, and `GetModuleScript` swallowed the exception. Translating the trust keyword is not enough: SMO 16 cannot open an encrypted connection to LocalDB at all. `GetServer` now uses the connection string only when Object Explorer's connection is an instance of our own `SqlConnectionInfo`, and the individual properties otherwise.
 
 Consequences:
 
-- The properties path does not request encryption (nor does indexing), whatever the Connect dialog said. A server that forces encryption still gets it.
+- The properties path requests encryption unless the Connect dialog turned it off (a missing `Encrypt` keyword counts as on), except on LocalDB, recognised by `(localdb)` or its pipe name but not through an alias. `Strict` becomes ordinary encryption, because `System.Data.SqlClient` has no TDS 8; a server that forces strict encryption cannot be scripted. Not run against an encrypted server yet. Indexing does not request encryption on any version; a server that forces encryption still gets it.
+- Scripting and indexing always set `TrustServerCertificate`, whatever the Connect dialog said, so on the properties path (indexing everywhere, scripting on SSMS 20) encryption does not authenticate the server. Whether the setter overrides the connection string on the other path has not been checked.
+- The properties path carries server, login, password and encryption only: no Entra authentication, no initial database. Indexing has the same limits, so such servers have no objects to script.
 - Any cast of an Object Explorer object to an SMO type (`RawConnectionInfo as SqlOlapConnectionInfoBase`) should be null on SSMS 20; `DesignTable` relies on one and has not been checked there.
 
 To see a swallowed exception in a Release build, trace the CLR with ETW: `logman start x -p "{e13c0d23-ccbc-4e12-931b-d9cc2eee27e4}" 0x8000 2 -o x.etl -ets` (needs Performance Log Users), then read event 80 with `Get-WinEvent -Path x.etl -Oldest`. Keyword `0x8` level 4 lists assembly loads with their paths.
