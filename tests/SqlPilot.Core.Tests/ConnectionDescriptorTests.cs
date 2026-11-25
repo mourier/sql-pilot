@@ -25,6 +25,7 @@ namespace SqlPilot.Core.Tests
         [InlineData("tcp:myhost,1433")]
         [InlineData("localdbserver.contoso.com")]
         [InlineData(@"np:\\myhost\pipe\sql\query")]
+        [InlineData(@"np:\\myhost\pipe\LOCALDB#88AE2009\tsql\query")]
         public void IsLocalDbServerName_RejectsOtherServers(string serverName)
         {
             ConnectionDescriptor.IsLocalDbServerName(serverName).Should().BeFalse();

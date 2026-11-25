@@ -25,14 +25,15 @@ namespace SqlPilot.Core.Database
         }
 
         /// <summary>
-        /// True for a LocalDB instance name or its pipe name, with or without "np:".
-        /// LocalDB reached through an alias is not recognised.
+        /// True for a LocalDB instance name or its local pipe name, with or without "np:".
+        /// LocalDB reached through an alias is not recognised, and neither is a pipe
+        /// on another host, whatever it is called.
         /// </summary>
         public static bool IsLocalDbServerName(string serverName)
         {
             return !string.IsNullOrEmpty(serverName)
                 && (serverName.StartsWith("(localdb)", StringComparison.OrdinalIgnoreCase)
-                    || serverName.IndexOf(@"\pipe\LOCALDB#", StringComparison.OrdinalIgnoreCase) >= 0);
+                    || serverName.IndexOf(@"\\.\pipe\LOCALDB#", StringComparison.OrdinalIgnoreCase) >= 0);
         }
     }
 }
