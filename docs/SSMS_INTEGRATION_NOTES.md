@@ -3,6 +3,22 @@
 Hard-won knowledge about integrating with SSMS from an extension.
 Read this before touching the integration layer.
 
+## Last checked against
+
+| SSMS | Build | When | Result |
+|------|-------|------|--------|
+| 18 | 18.12.1 (15.0.18424.0), the final 18 release | 2026-04 | — |
+| 20 | 20.2 (20.2.30.0) | 2026-11-25 | Pane, indexing, search, ALTER, Select Data, Edit Data, Script Table work. Design Table does nothing (see *SSMS 20 loads two SMO versions*). 20.2.1 (20.2.37.0, a security-only release) not run. |
+| 22 | 22.12.1 (22.12.12412.261) | 2026-11-25 | All of the above including Design Table, started as `ssms -S`. No code change was needed coming from 22.4.1; SMO is still assembly version 18.100.0.0 and `SqlWorkbench.Interfaces` still 22.200.0.0, so `lib/Ssms22` was left as it is. |
+
+One LocalDB server with Windows authentication each time. Not rerun on these builds: several servers, Azure SQL.
+
+Encryption and certificate trust (see *SSMS 20 loads two SMO versions*), checked on 2026-11-28 with a SQL login through `tools/TlsFront` (see *Testing encryption without a SQL Server*):
+
+- **Inside SSMS 22.12.1**, through 22.9's redesigned Connect dialog. Encrypt Mandatory with Trust Server Certificate ticked, against a certificate Windows does not trust: indexing, ALTER and a connected query window all work (before, ALTER came back as "Could not retrieve definition"). With trust clear and `Server Certificate` pointing at the server's certificate: the same three work. Then with the server's certificate swapped for another: Refresh ends in *"Could not index 127.0.0.1,14333 (The certificate is not valid for the requested usage)"* and no login is sent.
+- **Outside the IDE**, the same connection code run against each version's own SMO, `ConnectionDlg` and SqlClient: indexing, ALTER and the query-window connection connect when trust is ticked and are refused when it is not, on 18, 20 and 22; plain LocalDB is unaffected.
+- Not run: SSMS 18 and 20 in the IDE with this build, and a certificate in the Windows trust store.
+
 ## Object Explorer Tree
 
 ### The Tree property returns a TreeView (not a container)
@@ -121,6 +137,10 @@ if (dte?.ActiveDocument?.Object("TextDocument") is EnvDTE.TextDocument doc)
 
 The `UIConnectionInfo` needs these properties set: `ServerName`, `UserName`, `Password`, `PersistPassword=true`, `ApplicationName`, `ServerType` (GUID `8c91a03d-f9b4-46c0-a305-b5dcc79ff907` for SQL Server), `AuthenticationType` (0=Windows, 1=SQL).
 
+Everything else the Connect dialog offers travels in `AdvancedOptions`, a `NameValueCollection` keyed by the constants of `ConnectionDlg`'s `SqlServerType`: `DATABASE`, `ENCRYPT_CONNECTION` (`True`/`False` on 18; also `Mandatory`/`Optional`/`Strict` on 20 and 22), `TRUST_SERVER_CERTIFICATE`, `HOST_NAME_IN_CERTIFICATE` (20 and 22), `CONNECTION_TIMEOUT`, `EXEC_TIMEOUT`, `PACKET_SIZE`, `APPLICATIONINTENT` and more. **A key SSMS does not know is ignored without a word**: `AdvancedOptions["TrustServerCertificate"]` did nothing for as long as SQL Pilot set it. `OtherParams` is the dialog's Additional Connection Parameters, appended to the connection string as it stands, where a repeated keyword overrides the earlier one.
+
+With nothing set, SSMS 20 and 22 encrypt and do not trust the certificate; SSMS 18 does not encrypt. To see what a `UIConnectionInfo` turns into without opening a window, pass it to `UIConnectionInfoUtil.GetCoreConnectionInfo` (public, in `ConnectionDlg.dll`) and read `ConnectionString` off the result; it runs outside the IDE.
+
 ### Design Table (works!)
 
 ```csharp
@@ -199,6 +219,8 @@ RegisterHotKey(hwnd, HOTKEY_ID, MOD_CONTROL, VK_D);
 
 Works globally across all SSMS panels including the SQL editor.
 
+**It is global to the desktop, not to one SSMS.** `RegisterHotKey` claims Ctrl+D system-wide for the first SSMS that loads SQL Pilot. A second SSMS started while the first is open (another version, or the same one) fails to register, silently, and Ctrl+D pressed in it opens the pane in the *first* instance. When testing versions side by side this looks exactly like "the package did not load in the new one": close every other SSMS before drawing that conclusion.
+
 **Note**: `Ctrl+D` is hunting-dog's default. It's a reasonable choice but conflicts with any other extension using the same global hotkey. Consider making it configurable in a future version.
 
 ## DTE Commands
@@ -259,21 +281,23 @@ Keyword not supported: 'multiple active result sets'.
 
 The valid ADO.NET keyword is `MultipleActiveResultSets` (no spaces) but SSMS 20 writes it with spaces. SSMS 18 writes it without spaces. SSMS 22 writes it with spaces too, but its SMO accepts it, so the problem only surfaces on 20 (see *SSMS 20 loads two SMO versions* below).
 
-**Fix** in `SmoDatabaseObjectProvider.CreateServer`: prefer the individual properties (`ServerInstance`, `Login`, `Password`) when constructing `ServerConnection`, and fall back to the raw connection string only if those aren't available:
+**Fix** in `SmoDatabaseObjectProvider.CreateServerConnection`: on SSMS 20, construct the `ServerConnection` from individual properties instead of the string, carrying over the encryption and trust the string asked for:
 
 ```csharp
 var serverConn = new ServerConnection();
-serverConn.ServerInstance = _connection.ServerName;
-serverConn.TrustServerCertificate = true;
-if (!_connection.UseIntegratedSecurity)
+serverConn.ServerInstance = connection.ServerName;
+serverConn.EncryptConnection = connection.RequestsEncryption
+    && !ConnectionDescriptor.IsLocalDbServerName(connection.ServerName);
+serverConn.TrustServerCertificate = connection.TrustsServerCertificate;
+if (!connection.UseIntegratedSecurity)
 {
     serverConn.LoginSecure = false;
-    serverConn.Login = _connection.UserName ?? "";
-    serverConn.Password = _connection.Password ?? "";
+    serverConn.Login = connection.UserName ?? "";
+    serverConn.Password = connection.Password ?? "";
 }
 ```
 
-Do NOT try to sanitize the connection string with regex — new keywords may appear in future SSMS versions.
+Do NOT try to sanitize the connection string, with regex or by asking a `SqlConnectionStringBuilder` which keywords it knows. The second was tried and caused two bugs (next section).
 
 ### SSMS 20 loads two SMO versions
 
@@ -284,16 +308,24 @@ The Legacy build references SMO 16.100. SSMS 20's own SMO is 17.100, but it also
 | SMO | 17.100 | 16.100 |
 | Driver | `Microsoft.Data.SqlClient` | `System.Data.SqlClient` |
 
-On SSMS 18 and 22 the SMO that SQL Pilot is built against is the one SSMS itself uses, so the string is read by the driver family that wrote it. `SanitizeConnectionString` still runs there first, and on 22 it drops what `System.Data.SqlClient` does not know (the spaced keywords, `Trust Server Certificate`).
+On SSMS 18 and 22 the SMO that SQL Pilot is built against is the one SSMS itself uses, so the string is read by the driver family that wrote it, and SQL Pilot hands it over untouched.
 
-This was the "`-- Could not retrieve definition for ...` instead of the ALTER script" bug (issue #15). `ScriptingBridge.GetServer` dropped the keywords `System.Data.SqlClient` rejects, `Trust Server Certificate` among them, but kept `Encrypt=True`. The connection then failed, against LocalDB with *"The instance of SQL Server you attempted to connect to does not support encryption"*, and `GetModuleScript` swallowed the exception. Translating the trust keyword is not enough: SMO 16 cannot open an encrypted connection to LocalDB at all. `GetServer` now uses the connection string only when Object Explorer's connection is an instance of our own `SqlConnectionInfo`, and the individual properties otherwise.
+This was the "`-- Could not retrieve definition for ...` instead of the ALTER script" bug (issue #15). `ScriptingBridge.GetServer` ran the string through `SanitizeConnectionString`, which dropped every keyword `System.Data.SqlClient` rejects, `Trust Server Certificate` among them, but kept `Encrypt=True`. The connection then failed, against LocalDB with *"The instance of SQL Server you attempted to connect to does not support encryption"*, and `GetModuleScript` swallowed the exception. Translating the trust keyword is not enough: SMO 16 cannot open an encrypted connection to LocalDB at all.
+
+The same filter did the same damage on SSMS 22, where it was never needed: with "Trust server certificate" ticked and a certificate Windows does not trust (any server still on its self-generated one), indexing worked and every ALTER or CREATE came back as "Could not retrieve definition", the driver saying *"The certificate chain was issued by an authority that is not trusted"*. LocalDB hides it, because `Microsoft.Data.SqlClient` ignores `Encrypt` there. The filter is gone.
+
+`SmoDatabaseObjectProvider.CreateServerConnection` now builds the one connection that both indexing and scripting use. It takes the connection string as it is when Object Explorer's connection is an instance of our own `SqlConnectionInfo` (SSMS 18, 22), and the individual properties otherwise (SSMS 20). Either way the rule is the same: **SQL Pilot's connection asks for the encryption and the certificate trust that the Object Explorer connection asked for.** Until this, indexing on every version and scripting on SSMS 20 set `TrustServerCertificate` regardless, so a login, password included, went to whatever answered, even with the tick box clear.
 
 Consequences:
 
-- The properties path requests encryption unless the Connect dialog turned it off (a missing `Encrypt` keyword counts as on), except on LocalDB, recognised by `(localdb)` or its pipe name but not through an alias. `Strict` becomes ordinary encryption, because `System.Data.SqlClient` has no TDS 8; a server that forces strict encryption cannot be scripted. Not run against an encrypted server yet. Indexing does not request encryption on any version; a server that forces encryption still gets it.
-- On the properties path (indexing everywhere, scripting on SSMS 20) `TrustServerCertificate` is always on, whatever the Connect dialog said, so encryption there does not authenticate the server. On the connection-string path the setter does nothing: set after `ConnectionString`, it left the string unchanged on SMO 16 and 18. Trust then depends on what survives `SanitizeConnectionString`: SSMS 18's `TrustServerCertificate` does, SSMS 22's `Trust Server Certificate` is dropped while `Encrypt=True` is kept. So on SSMS 22, scripting against a server with a self-signed certificate may fail the same way issue #15 did. Not tested; LocalDB does not show it.
-- The properties path carries server, login, password and encryption only: no Entra authentication, no initial database. Indexing has the same limits, so such servers have no objects to script.
-- Any cast of an Object Explorer object to an SMO type (`RawConnectionInfo as SqlOlapConnectionInfoBase`) should be null on SSMS 20; `DesignTable` relies on one and has not been checked there.
+- On SSMS 18 and 22 the match with the Connect dialog is exact, since it is the same string for the same driver. That includes the keywords indexing never used to see (`Authentication`, `Host Name In Certificate`, `Application Intent`, an initial database). Not run against Entra authentication.
+- On SSMS 20 it is a translation of two keywords, read by `ConnectionDescriptor.RequestsEncryption` and `TrustsServerCertificate`. Encryption is requested unless the string turns it off (a missing `Encrypt` counts as on), except on LocalDB, recognised by `(localdb)` or its pipe name but not through an alias. `Strict` becomes ordinary encryption that never trusts, because `System.Data.SqlClient` has no TDS 8; a server that forces strict encryption cannot be reached. Trust is `Trust Server Certificate` (SSMS 18 writes `TrustServerCertificate`; both are read).
+- Nothing else crosses over on SSMS 20: no Entra authentication, no initial database, and no `Host Name In Certificate` or `Server Certificate`. A connection that needed one of those to validate is refused by SQL Pilot's driver, which checks the certificate against the server name as typed; the status bar then reads "Could not index ..." with the driver's message. Not tested.
+- The two drivers differ when the client does not ask for encryption and the server forces it: `Microsoft.Data.SqlClient` (SSMS 20's and 22's own) still validates the certificate unless told to trust it, `System.Data.SqlClient` (SSMS 18, and SQL Pilot on SSMS 20) does not.
+- **Query windows follow the same rule by a third route.** They connect through SSMS's own driver on every version, so `CreateUIConnectionInfo` passes on the four things that decide how the server is authenticated, under SSMS's own names: `ENCRYPT_CONNECTION` (the `Encrypt` value as written), `TRUST_SERVER_CERTIFICATE`, `HOST_NAME_IN_CERTIFICATE`, and `Server Certificate` through `OtherParams`. Until this it added `TrustServerCertificate=True` through `OtherParams` whatever the dialog said, and on SSMS 18 the window was not encrypted even when Object Explorer's connection was. Nothing else from the dialog reaches the window yet (timeouts, application intent, Entra authentication, other Additional Connection Parameters).
+- Do not ask Object Explorer for its own `UIConnectionInfo`. `ConnectionCache.GetUIConnectionInfo(SqlOlapConnectionInfoBase)` (non-public, `ObjectExplorer.dll`, all three versions) looks like the way, but it opens a connection to the server as a side effect.
+- So on SSMS 20 a server reached with `Host Name In Certificate` or `Server Certificate` and trust clear gets working query windows but no index and no scripts. The way out is for SQL Pilot to use SSMS 20's own SMO 17 there, which means a third build of `SqlPilot.Smo` and moving the SMO calls in `ScriptingBridge` behind it; not done.
+- Any cast of an Object Explorer object to an SMO type (`RawConnectionInfo as SqlOlapConnectionInfoBase`) is null on SSMS 20. `DesignTable` relies on one, so **Design Table does nothing on SSMS 20** (checked on 20.2: no designer opens, no error). It works on SSMS 22. Not fixed: `ManagedConnectionWrapper` implements `IManagedConnection` against SMO 16's `SqlOlapConnectionInfoBase`, and SSMS 20's `ScriptFactory` wants the SMO 17 one.
 
 To see a swallowed exception in a Release build, trace the CLR with ETW: `logman start x -p "{e13c0d23-ccbc-4e12-931b-d9cc2eee27e4}" 0x8000 2 -o x.etl -ets` (needs Performance Log Users), then read event 80 with `Get-WinEvent -Path x.etl -Oldest`. Keyword `0x8` level 4 lists assembly loads with their paths.
 
@@ -396,7 +428,9 @@ Two differences that each cost a long debugging session:
   argument as the filename, so `-log -S server` silently eats `-S`.
 - **`-S <server>` asks first.** SSMS 22 shows a *"Connect to the following server?"* Yes/No
   prompt inside the main window before connecting; nothing is connected until it is answered.
-  SSMS 18/20 (`-S <server> -E`) connect straight away.
+  SSMS 18/20 (`-S <server> -E`) connect straight away. The prompt is a WinForms dialog whose
+  `Yes`/`No` buttons reach UI Automation as `Pane` elements with no `InvokePattern`; post
+  `BM_CLICK` (`0xF5`) to the button's `NativeWindowHandle` instead. Still true on 22.12.1.
 
 ### Driving a multi-server test through UI Automation
 
@@ -408,6 +442,72 @@ user field is labelled `Login:` once SQL authentication is selected. Two LocalDB
 (`sqllocaldb create <name>`) make a cheap pair of servers, and LocalDB accepts SQL logins.
 The pane itself exposes `IndexStatus`, `SearchTextBox`, `ResultsListBox`, `ScopeButton` and
 `RefreshButton` as automation ids.
+
+SSMS 22.9 and later: the `Connect` window is a child of the main window, and its inputs are
+found by name: `Server Name` (combo box), `Authentication`, `User Name`, `Password`, `Encrypt`
+(`Mandatory` / `Optional` / `Strict ...`), the `Trust Server Certificate` check box and
+`Host Name In Certificate`. `AdvancedPropertiesButton` opens `Advanced Properties`, which
+has `Server Certificate`, `Packet Size` and the rest. The second tab holds the whole thing as
+`connectionStringTextBox`; Object Explorer's connections are `Pooling=False;Packet Size=4096`.
+`ValuePattern.SetValue` works on all of them, the password box included. Leave the
+connection-string tab for reading: a connection made by pasting a string there and pressing
+`Apply` logged in once and never appeared in Object Explorer, with no error.
+
+The text of a query window is `TextPattern` on the element of class `WpfTextView`, and its
+tab's name says whether it is connected (`SQLQuery1.sql - server.database (login (spid))`).
+Closing SSMS with an unsaved query raises a `Save` / `Don't Save` / `Cancel` window; a pending
+connection error raises *"an operation is blocking user input ... shut down anyway?"* first.
+
+### Testing encryption without a SQL Server
+
+LocalDB cannot encrypt, and it hides encryption bugs: `Microsoft.Data.SqlClient` quietly
+ignores `Encrypt` for it, `System.Data.SqlClient` fails outright. `tools/TlsFront` puts a
+loopback TCP endpoint in front of a LocalDB instance that negotiates TDS 7.x encryption with
+a throwaway self-signed certificate, then relays to the instance's pipe. To a client it is an
+encrypted server whose certificate Windows does not trust, and it answers a client that does
+not ask for encryption the way a server with Force Encryption does. No install, no elevation.
+
+```powershell
+sqllocaldb start SqlPilotB; sqllocaldb info SqlPilotB     # note the instance pipe name
+dotnet run --project tools\TlsFront -c Release -- 14333 'LOCALDB#5F8A78B0\tsql\query' front.cer
+```
+
+Each connection is logged with what the client asked for, and a `LOGIN7` line naming the
+program once the client has accepted the certificate and sent its login. A handshake with no
+`LOGIN7` after it is a client that looked at the certificate and hung up, which is the
+evidence that trust was checked. `TLSFRONT_TRACE=1` adds every packet.
+
+- **Connect as `127.0.0.1,14333`, not `localhost,14333`.** SqlClient and ODBC replace
+  `localhost` with the machine name and go to its network address, where the front does not
+  listen (connection refused, or a timeout).
+- **SQL logins only.** Windows authentication does not survive being relayed (*"Cannot
+  generate SSPI context"*). LocalDB accepts SQL logins.
+- **LocalDB stops when idle and comes back under a new pipe name.** Everything then fails with
+  *"An existing connection was forcibly closed by the remote host"*; restart the front with
+  the new name.
+- **A certificate that validates**, two ways. The front writes its certificate (no key) to
+  the file named last on its command line. Either point the client at it with
+  `Server Certificate=<file>` under Additional Connection Parameters, which
+  `Microsoft.Data.SqlClient` matches exactly without consulting Windows (SSMS 20 and 22's own
+  connections; not `System.Data.SqlClient`), or import it into Trusted Root Certification
+  Authorities for the test and remove it afterwards. It is named `127.0.0.1`, is not a CA,
+  and is new on every start.
+- TDS 8 (`Encrypt=Strict`) is not handled.
+- **If you write another relay: one TLS record per TDS packet**, as SQL Server sends them.
+  The client's native SNI sizes its buffer by the packet size, and a record holding more
+  kills the client process outright: fast-fail `0xc0000409` in
+  `Microsoft.Data.SqlClient.SNI.x64.dll`, no managed exception. It took SSMS 22 down twice
+  before the front learned this. SSMS asks for a packet size of 4096, which two packets in
+  one record exceed; SqlClient's default of 8000 happened not to show it.
+
+To run SQL Pilot's connection code against one SSMS version's assemblies without the IDE,
+load `SqlPilot.Smo.dll` in a console app with an `AssemblyResolve` handler that looks in that
+SSMS's `Common7\IDE` (plus `PublicAssemblies`, where SSMS 22 keeps `System.Text.Json`, and
+`Extensions\Application` on SSMS 20), make a
+`SqlConnectionInfo` of SSMS's own SMO to stand in for Object Explorer's, and call
+`CreateServerConnection`. For SSMS 20 load both SMO copies, as it does. The query-window
+connection can be had the same way: `CreateUIConnectionInfo`, then
+`UIConnectionInfoUtil.GetCoreConnectionInfo`, then connect with SSMS's own `ServerConnection`.
 
 ### Autoload: NoSolution is not enough on SSMS 22
 

@@ -25,7 +25,7 @@ msbuild SqlPilot.sln /p:Configuration=Release /p:Platform="Any CPU"
 # Build a single project
 msbuild src/SqlPilot.Installer/SqlPilot.Installer.csproj /p:Configuration=Release
 
-# Run all 44 core tests
+# Run all core tests
 dotnet test tests/SqlPilot.Core.Tests/SqlPilot.Core.Tests.csproj --configuration Release
 
 # Run a single test
