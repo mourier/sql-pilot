@@ -16,37 +16,36 @@ namespace SqlPilot.Smo
             _connection = connection;
         }
 
-        private Server CreateServer()
-        {
-            if (_connection == null) return null;
-
-            // Prefer individual properties — avoids connection string keyword incompatibilities
-            // between SSMS versions (e.g. SSMS 20's "Multiple Active Result Sets" with spaces
-            // isn't valid for SMO's older ServerConnection parser).
-            if (!string.IsNullOrEmpty(_connection.ServerName))
-                return new Server(CreateServerConnection(_connection));
-
-            // Last resort: use the raw connection string (may fail on SSMS 20)
-            if (!string.IsNullOrEmpty(_connection.ConnectionString))
-            {
-                var serverConn = new ServerConnection();
-                serverConn.ConnectionString = _connection.ConnectionString;
-                serverConn.TrustServerCertificate = true;
-                return new Server(serverConn);
-            }
-
-            return null;
-        }
+        /// <summary>
+        /// The server behind an Object Explorer connection, or null when there is none.
+        /// </summary>
+        public static Server CreateServer(ConnectionDescriptor connection)
+            => connection == null ? null : new Server(CreateServerConnection(connection));
 
         /// <summary>
-        /// Builds a connection from the descriptor's server name and login, trusting the
-        /// server certificate. Shared by indexing and by scripting on SSMS 20.
+        /// The connection SQL Pilot opens for itself, for indexing and for scripting. It
+        /// asks for the encryption and the certificate trust that the Object Explorer
+        /// connection in <paramref name="connection"/> asked for, no more and no less.
         /// </summary>
         public static ServerConnection CreateServerConnection(ConnectionDescriptor connection)
         {
+            // Object Explorer's connection is of our own SMO (SSMS 18, 22): its string was
+            // written for our SqlClient and already says everything the Connect dialog did.
+            if (connection.RawConnectionInfo is SqlConnectionInfo
+                && !string.IsNullOrEmpty(connection.ConnectionString))
+            {
+                return new ServerConnection { ConnectionString = connection.ConnectionString };
+            }
+
+            // Otherwise it is of another SMO (SSMS 20: 17 against our 16) and its string is for
+            // a SqlClient we don't have; SMO 16 rejects "Multiple Active Result Sets" for one.
+            // Carry over what both drivers know. See "SSMS 20 loads two SMO versions" in the notes.
             var serverConn = new ServerConnection();
             serverConn.ServerInstance = connection.ServerName;
-            serverConn.TrustServerCertificate = true;
+            // SMO 16 cannot open an encrypted connection to LocalDB, which never leaves the machine.
+            serverConn.EncryptConnection = connection.RequestsEncryption
+                && !ConnectionDescriptor.IsLocalDbServerName(connection.ServerName);
+            serverConn.TrustServerCertificate = connection.TrustsServerCertificate;
 
             if (!connection.UseIntegratedSecurity)
             {
@@ -66,7 +65,7 @@ namespace SqlPilot.Smo
             return Task.Run(() =>
             {
                 var results = new List<DatabaseObject>();
-                var server = CreateServer();
+                var server = CreateServer(_connection);
                 if (server == null) return (IReadOnlyList<DatabaseObject>)results;
 
                 server.SetDefaultInitFields(typeof(Table), "Name", "Schema", "IsSystemObject");
@@ -154,7 +153,7 @@ namespace SqlPilot.Smo
             return Task.Run(() =>
             {
                 var results = new List<string>();
-                var server = CreateServer();
+                var server = CreateServer(_connection);
                 if (server == null) return (IReadOnlyList<string>)results;
 
                 foreach (Database db in server.Databases)

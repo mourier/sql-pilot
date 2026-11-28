@@ -57,6 +57,7 @@ SqlPilot/
 │   └── SqlPilot.Installer.Tests/# xUnit tests for the installer's release-JSON parsing
 ├── spike/                       # Phase 0 spike (SSMS 22, VSSDK 17.x)
 ├── spike-legacy/                # Phase 0 spike (SSMS 18/20, VSSDK 15.x)
+├── tools/TlsFront/              # Test tool: TLS endpoint in front of LocalDB (not in SqlPilot.sln)
 ├── lib/Ssms18/                  # Compile-time refs against SSMS 18 SMO/SqlWorkbench DLLs
 ├── lib/Ssms22/                  # Compile-time refs against SSMS 22 SMO/SqlWorkbench DLLs
 ├── build/                       # Deploy-Dev.ps1, Clean-And-Deploy.ps1, SqlPilotDlls.txt

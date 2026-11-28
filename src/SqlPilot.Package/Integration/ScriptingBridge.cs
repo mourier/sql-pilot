@@ -24,85 +24,11 @@ namespace SqlPilot.Package.Integration
             _package = serviceProvider as SqlPilotPackage;
         }
 
+        // The same connection indexing uses, so the two cannot disagree about encryption
+        // or about trusting the server certificate.
         private Server GetServer(DatabaseObject obj)
-        {
-            var connInfo = _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName);
-            if (connInfo == null) return null;
-
-            if (connInfo.RawConnectionInfo is SqlConnectionInfo)
-            {
-                if (connInfo.ConnectionString == null) return null;
-                var fromString = new ServerConnection();
-                fromString.ConnectionString = SanitizeConnectionString(connInfo.ConnectionString);
-                fromString.TrustServerCertificate = true;
-                return new Server(fromString);
-            }
-
-            // SSMS's connection comes from a different SMO than ours (SSMS 20: 17 vs 16),
-            // so its connection string is for another SqlClient. Build from properties,
-            // as indexing does. See "SSMS 20 loads two SMO versions" in the notes.
-            // SMO 16 cannot open an encrypted connection to LocalDB, which never leaves the machine.
-            var serverConn = SqlPilot.Smo.SmoDatabaseObjectProvider.CreateServerConnection(connInfo);
-            serverConn.EncryptConnection = RequestsEncryption(connInfo.ConnectionString)
-                && !ConnectionDescriptor.IsLocalDbServerName(connInfo.ServerName);
-            return new Server(serverConn);
-        }
-
-        /// <summary>
-        /// Reads the Encrypt keyword without binding to either SqlClient's dialect.
-        /// Anything but an explicit "off" counts as a request for encryption, a missing
-        /// keyword included: the driver that wrote the string encrypts by default.
-        /// </summary>
-        private static bool RequestsEncryption(string connStr)
-        {
-            var builder = new System.Data.Common.DbConnectionStringBuilder { ConnectionString = connStr };
-            if (!builder.TryGetValue("Encrypt", out var value)) return true;
-            var text = value.ToString();
-            return !text.Equals("False", StringComparison.OrdinalIgnoreCase)
-                && !text.Equals("No", StringComparison.OrdinalIgnoreCase)
-                && !text.Equals("Optional", StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
-        /// Drops every keyword segment that
-        /// <see cref="System.Data.SqlClient.SqlConnectionStringBuilder"/> doesn't
-        /// recognise (e.g. "multiple active result sets" with spaces). Only used when
-        /// SSMS shares our SMO (see <see cref="GetServer"/>); it can also drop settings
-        /// a newer driver understands.
-        /// </summary>
-        private static string SanitizeConnectionString(string connStr)
-        {
-            if (string.IsNullOrEmpty(connStr)) return connStr;
-            var sb = new StringBuilder();
-            foreach (var segment in connStr.Split(';'))
-            {
-                var trimmed = segment.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
-                try
-                {
-                    new System.Data.SqlClient.SqlConnectionStringBuilder().ConnectionString = trimmed;
-                    if (sb.Length > 0) sb.Append(';');
-                    sb.Append(trimmed);
-                }
-                catch { /* keyword SqlClient doesn't know — drop it */ }
-            }
-            return sb.ToString();
-        }
-
-        private SqlConnectionInfo GetSqlConnectionInfo(DatabaseObject obj)
-        {
-            var connDesc = _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName);
-            if (connDesc == null) return null;
-            var connInfo = new SqlConnectionInfo();
-            connInfo.ServerName = connDesc.ServerName;
-            if (!connDesc.UseIntegratedSecurity)
-            {
-                connInfo.UseIntegratedSecurity = false;
-                connInfo.UserName = connDesc.UserName;
-                connInfo.Password = connDesc.Password;
-            }
-            return connInfo;
-        }
+            => SqlPilot.Smo.SmoDatabaseObjectProvider.CreateServer(
+                _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName));
 
         /// <summary>
         /// Azure SQL doesn't support 3-part names — returns the 2-part qualified name for Azure,
@@ -473,8 +399,8 @@ namespace SqlPilot.Package.Integration
                 var scriptFactory = GetServiceCacheScriptFactory();
                 if (scriptFactory != null)
                 {
-                    var connInfo = GetSqlConnectionInfo(obj);
-                    var uiConn = CreateUIConnectionInfo(connInfo);
+                    var uiConn = CreateUIConnectionInfo(
+                        _package?.ObjectExplorerBridge?.GetConnectionInfo(obj.ServerName));
                     if (uiConn != null)
                     {
                         // For Azure SQL, set the target database on the connection
@@ -482,17 +408,7 @@ namespace SqlPilot.Package.Integration
                         // the right database (Azure SQL can't USE to switch).
                         if (isAzure)
                         {
-                            try
-                            {
-                                var advProp = uiConn.GetType().GetProperty("AdvancedOptions");
-                                var adv = advProp?.GetValue(uiConn);
-                                if (adv != null)
-                                {
-                                    // AdvancedOptions is an IDictionary<string, string>
-                                    var indexer = adv.GetType().GetProperty("Item", new[] { typeof(string) });
-                                    indexer?.SetValue(adv, obj.DatabaseName, new object[] { "DATABASE" });
-                                }
-                            }
+                            try { SetAdvancedOption(uiConn, "DATABASE", obj.DatabaseName); }
                             catch (Exception ex) { Debug.WriteLine($"SqlPilot set AdvancedOptions[DATABASE]: {ex.Message}"); }
                         }
 
@@ -537,40 +453,43 @@ namespace SqlPilot.Package.Integration
             }
         }
 
-        private static object CreateUIConnectionInfo(SqlConnectionInfo connInfo)
+        private static object CreateUIConnectionInfo(ConnectionDescriptor connection)
         {
-            if (connInfo == null) return null;
+            if (connection == null) return null;
             try
             {
                 var uiType = FindType("Microsoft.SqlServer.Management.Smo.RegSvrEnum.UIConnectionInfo");
                 if (uiType == null) return null;
                 var uiConn = Activator.CreateInstance(uiType);
-                uiType.GetProperty("ServerName")?.SetValue(uiConn, connInfo.ServerName);
-                uiType.GetProperty("UserName")?.SetValue(uiConn, connInfo.UserName);
-                uiType.GetProperty("Password")?.SetValue(uiConn, connInfo.Password);
+                uiType.GetProperty("ServerName")?.SetValue(uiConn, connection.ServerName);
+                if (!connection.UseIntegratedSecurity)
+                {
+                    uiType.GetProperty("UserName")?.SetValue(uiConn, connection.UserName);
+                    uiType.GetProperty("Password")?.SetValue(uiConn, connection.Password);
+                }
                 uiType.GetProperty("PersistPassword")?.SetValue(uiConn, true);
                 uiType.GetProperty("ApplicationName")?.SetValue(uiConn, "SQL Pilot");
                 uiType.GetProperty("ServerType")?.SetValue(uiConn, SqlServerTypeGuid);
-                uiType.GetProperty("AuthenticationType")?.SetValue(uiConn, connInfo.UseIntegratedSecurity ? 0 : 1);
+                uiType.GetProperty("AuthenticationType")?.SetValue(uiConn, connection.UseIntegratedSecurity ? 0 : 1);
 
-                // SQL Server 2022+ ships with Encrypt=Mandatory by default. Without
-                // TrustServerCertificate=True, on-prem servers with self-signed certs
-                // fail with "certificate chain issued by untrusted authority" in SSMS 22.
-                // AdvancedOptions is a NameValueCollection whose entries are merged into
-                // the resulting connection string; OtherParams is appended raw. Set both
-                // so whichever path SSMS uses picks it up.
-                try
+                // The window connects through SSMS's own driver, so the Connect dialog's
+                // choices go across under SSMS's own option names: the same encryption, the
+                // same trust in the server certificate, the same name to check it against.
+                // Left unset, SSMS 20 and 22 encrypt without trusting and SSMS 18 does not
+                // encrypt. A failure here must not leave a window that trusts more than the
+                // dialog did, so it is not caught until the whole connection is given up.
+                SetAdvancedOption(uiConn, "ENCRYPT_CONNECTION", connection.EncryptSetting);
+                SetAdvancedOption(uiConn, "TRUST_SERVER_CERTIFICATE", connection.TrustsServerCertificate.ToString());
+                SetAdvancedOption(uiConn, "HOST_NAME_IN_CERTIFICATE", connection.HostNameInCertificate);
+
+                // A certificate file to match has no option name; the dialog takes it under
+                // Additional Connection Parameters, which is what OtherParams is.
+                if (connection.ServerCertificate != null)
                 {
-                    var advProp = uiType.GetProperty("AdvancedOptions");
-                    var adv = advProp?.GetValue(uiConn);
-                    if (adv != null)
-                    {
-                        var indexer = adv.GetType().GetProperty("Item", new[] { typeof(string) });
-                        indexer?.SetValue(adv, "True", new object[] { "TrustServerCertificate" });
-                    }
-                    uiType.GetProperty("OtherParams")?.SetValue(uiConn, "TrustServerCertificate=True");
+                    var extra = new System.Data.Common.DbConnectionStringBuilder();
+                    extra["Server Certificate"] = connection.ServerCertificate;
+                    uiType.GetProperty("OtherParams")?.SetValue(uiConn, extra.ConnectionString);
                 }
-                catch (Exception ex) { Debug.WriteLine($"SqlPilot set TrustServerCertificate: {ex.Message}"); }
 
                 return uiConn;
             }
@@ -579,6 +498,16 @@ namespace SqlPilot.Package.Integration
                 Debug.WriteLine($"SqlPilot CreateUIConnectionInfo: {ex.Message}");
                 return null;
             }
+        }
+
+        // UIConnectionInfo.AdvancedOptions is a NameValueCollection keyed by the names the
+        // Connect dialog uses (ConnectionDlg's SqlServerType). A null value leaves the key alone.
+        private static void SetAdvancedOption(object uiConn, string key, string value)
+        {
+            if (value == null) return;
+            var options = uiConn.GetType().GetProperty("AdvancedOptions")?.GetValue(uiConn);
+            options?.GetType().GetProperty("Item", new[] { typeof(string) })
+                ?.SetValue(options, value, new object[] { key });
         }
 
         private static object FindEnumValue(string enumTypeName, int value)
